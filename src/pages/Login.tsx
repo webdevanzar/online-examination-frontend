@@ -38,7 +38,7 @@ const LoginPage = () => {
         <div className="bg-white shadow-md rounded-2xl p-8 w-full max-w-md mx-auto">
 
           {/* Username */}
-          <label className="text-gray-700 font-medium">Username or email</label>
+          <label className="text-gray-700 font-medium">Email</label>
           <input
             type="text"
             placeholder="johnsmith007"

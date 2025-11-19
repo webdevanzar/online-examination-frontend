@@ -1,16 +1,24 @@
 import { Routes, Route } from "react-router-dom";
+
+import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import SignUp from "./pages/Signup";
-import User from "./pages/User";
-import History from "./pages/History";
+import { Layout } from "./layouts/layout";
+import { ExamHistory } from "./pages/ExamHistory";
 
 function App() {
   return (
     <Routes>
-      <Route index element={<User />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<SignUp />} />
-      <Route path="/history" element={<History />} />
+
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<SignUp />} />
+
+      {/* PAGES WITH HEADER + FOOTER */}
+      <Route element={<Layout />}>
+        <Route index element={<LandingPage />} />
+        <Route path="/exam-history" element={<ExamHistory />} />
+      </Route>
+
     </Routes>
   );
 }
