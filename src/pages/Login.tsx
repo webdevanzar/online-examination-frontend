@@ -1,105 +1,98 @@
-import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 
-
-const Login = () => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm();
-
-  const onSubmit = (data) => {
-    console.log("Form Data:", data);
-  };
-
+const LoginPage = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="flex w-full justify-center  bg-gray-50">
+    <div className="w-full min-h-screen bg-[#EAFCEF] flex flex-col md:flex-row">
 
+      {/* LEFT SIDE (Illustration + Text) */}
+      <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-8">
+        
+        <img
+          src="/illustrations/exam-illustration.png" 
+          alt="Exam Illustration"
+          className="max-w-md w-[80%]"
+        />
 
-        {/* Right Side Card */}
-        <div className="w-2/3 flex justify-center">
-          <div className="bg-white shadow-md p-10 rounded-xl w-full max-w-md">
-            <p className="text-gray-500 mb-1">Please enter your details</p>
-            <h1 className="text-3xl font-bold mb-6">Welcome back</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mt-6 text-center">
+          Exam Mastery Hub
+        </h1>
 
-            <form onSubmit={handleSubmit(onSubmit)}>
-              {/* Email */}
-              <label className="text-sm font-medium">Email address</label>
-              <input
-                type="email"
-                className="w-full px-4 py-2 border rounded-lg mt-1 mb-3 focus:outline-none"
-                placeholder="Enter email"
-                {...register("email", { required: true })}
-              />
-              {errors.email && (
-                <p className="text-red-500 text-sm -mt-2 mb-2">
-                  Email is required
-                </p>
-              )}
+        <p className="text-gray-600 text-center max-w-sm mt-3">
+          Unleash Your Academic Success with Exam Mastery Hub’s 
+          Exam Excellence Platform
+        </p>
+      </div>
 
-              {/* Password */}
-              <label className="text-sm font-medium">Password</label>
-              <input
-                type="password"
-                className="w-full px-4 py-2 border rounded-lg mt-1 mb-3 focus:outline-none"
-                placeholder="Enter password"
-                {...register("password", { required: true })}
-              />
-              {errors.password && (
-                <p className="text-red-500 text-sm -mt-2 mb-2">
-                  Password is required
-                </p>
-              )}
+      {/* RIGHT SIDE (Login Box) */}
+      <div className="w-full md:w-1/2 flex flex-col justify-center p-8 md:px-20">
 
-              {/* Remember + Forgot password */}
-              <div className="flex justify-between items-center mb-6">
-                <label className="flex items-center space-x-2 text-sm">
-                  <input type="checkbox" {...register("remember")} />
-                  <span>Remember for 30 days</span>
-                </label>
-                <button className="text-blue-600 text-sm hover:underline">
-                  Forgot password
-                </button>
-              </div>
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <img
+            src="/logo/masteryhub-logo.png"  
+            alt="Mastery Hub Logo"
+            className="h-14"
+          />
+        </div>
 
-              {/* Blue Sign Up Button */}
-              <button
-                type="submit"
-                className="w-full py-2 bg-blue-600 text-white rounded-lg mb-4 hover:bg-blue-700"
-              >
-                Sign in
-              </button>
+        <div className="bg-white shadow-md rounded-2xl p-8 w-full max-w-md mx-auto">
 
-              {/* Google Button */}
-              <button
-                type="button"
-                className="w-full py-2 border rounded-lg flex items-center justify-center space-x-2 hover:bg-gray-100"
-              >
-                <img
-                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                  className="w-5 h-5"
-                  alt=""
-                />
-                <span>Sign in with Google</span>
-              </button>
-            </form>
+          {/* Username */}
+          <label className="text-gray-700 font-medium">Username or email</label>
+          <input
+            type="text"
+            placeholder="johnsmith007"
+            className="w-full mt-1 mb-4 px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-400"
+          />
 
-            {/* Footer */}
-            <p className="text-center text-sm mt-6">
-              Don’t have an account?{" "}
-             <Link to="/register" className="text-blue-600 hover:underline cursor-pointer">
-               Sign up
-               </Link>
-             </p>
+          {/* Password */}
+          <label className="text-gray-700 font-medium">Password</label>
+          <input
+            type="password"
+            placeholder="************"
+            className="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-400"
+          />
 
-            
+          <div className="flex justify-end mt-2">
+            <Link to="/forgotpassword" className="text-green-600 text-sm hover:underline">
+              Forgot password?
+            </Link>
           </div>
+
+          {/* Sign In Button */}
+          <button className="w-full mt-6 bg-[#1D1F20] text-white py-3 rounded-lg text-lg hover:bg-black transition">
+            Sign in
+          </button>
+
+          {/* Divider */}
+          <div className="flex items-center my-6">
+            <div className="flex-1 h-px bg-gray-300"></div>
+            <span className="px-3 text-gray-500">or</span>
+            <div className="flex-1 h-px bg-gray-300"></div>
+          </div>
+
+          {/* Google Login */}
+          <button className="w-full border border-gray-300 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-100 transition">
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg"
+              alt="Google Logo"
+              className="h-5"
+            />
+            <span className="text-gray-700">Sign in with Google</span>
+          </button>
+
+          {/* Create Account */}
+          <p className="mt-6 text-center text-gray-600 text-sm">
+            Are you new?
+            <Link to="/signup" className="text-green-600 font-semibold hover:underline">
+              Create an Account
+            </Link>
+          </p>
+
         </div>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default LoginPage;

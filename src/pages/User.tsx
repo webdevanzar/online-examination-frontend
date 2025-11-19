@@ -1,7 +1,7 @@
 import { Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import Notification from "../components/Notification"; // ✅ correct import
+import Notification from "../Components/Notification";
 
 const User = () => {
   const navigate = useNavigate();
