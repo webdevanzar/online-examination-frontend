@@ -3,8 +3,12 @@ import { Routes, Route } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import SignUp from "./pages/Signup";
-import { Layout } from "./layouts/layout";
 import { ExamHistory } from "./pages/ExamHistory";
+import Layout from "./layouts/Layout";
+import Exams from "./pages/Exams";
+import Profile from "./pages/Profie";
+
+
 
 function App() {
   return (
@@ -17,6 +21,11 @@ function App() {
       <Route element={<Layout />}>
         <Route index element={<LandingPage />} />
         <Route path="/exam-history" element={<ExamHistory />} />
+        <Route path="/exams" element={<Exams />} /> 
+        <Route path="/profile" element={<Profile />} />
+
+       
+         
       </Route>
 
     </Routes>

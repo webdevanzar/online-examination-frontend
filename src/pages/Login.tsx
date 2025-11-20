@@ -8,7 +8,7 @@ const LoginPage = () => {
       <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-8">
         
         <img
-          src="/illustrations/exam-illustration.png" 
+          src="/src/assets/examHub.png" 
           alt="Exam Illustration"
           className="max-w-md w-[80%]"
         />
@@ -29,7 +29,7 @@ const LoginPage = () => {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <img
-            src="/logo/masteryhub-logo.png"  
+            src="/src/assets/logo.png"  
             alt="Mastery Hub Logo"
             className="h-14"
           />
@@ -74,7 +74,7 @@ const LoginPage = () => {
           {/* Google Login */}
           <button className="w-full border border-gray-300 py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-100 transition">
             <img
-              src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg"
+              src="src/assets/googlelogo.png"
               alt="Google Logo"
               className="h-5"
             />

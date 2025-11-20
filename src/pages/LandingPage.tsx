@@ -9,6 +9,7 @@ import {
   FiAward,
   FiZap,
 } from "react-icons/fi";
+import { Navigation } from "lucide-react";
 
 const courses = [
   {
@@ -383,7 +384,7 @@ const LandingPage = () => {
               Take our exams and get instant feedback to identify your strengths
               and areas for improvement.
             </p>
-
+            <Nav link to="/exams">
             <button
               className="
         bg-white text-green-700 px-6 py-3 rounded-lg font-medium 
@@ -392,6 +393,7 @@ const LandingPage = () => {
             >
               Browse All Exams
             </button>
+            </Nav>
           </div>
         </section>
       </div>

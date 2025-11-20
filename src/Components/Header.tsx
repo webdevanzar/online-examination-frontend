@@ -36,15 +36,22 @@ const Header = () => {
 
         {/* DESKTOP NAV */}
         <nav className="hidden md:flex gap-10 text-lg font-medium">
-          <a href="#" className="hover:text-green-700">
+          <a href="/" className="hover:text-green-700">
             Home
           </a>
           <a href="#courses" className="hover:text-green-700">
             Courses
           </a>
-          <a href="#exams" className="hover:text-green-700">
+          <NavLink
+            to="/exams"
+            className={({ isActive }) =>
+              `hover:text-green-700 transition ${
+                isActive ? "border-b-2 border-green-700 pb-1" : ""
+              }`
+            }
+          >
             Exams
-          </a>
+          </NavLink>
         </nav>
 
         {/* RIGHT ICONS */}
@@ -52,7 +59,9 @@ const Header = () => {
           {/* Refresh */}
           <NavLink
             to="/exam-history"
-            className={({ isActive }) => (isActive ? "bg-green-400 rounded-xl text-white" : "text-green-700")}
+            className={({ isActive }) =>
+              isActive ? "bg-green-400 rounded-xl text-white" : "text-green-700"
+            }
           >
             <button className="w-10 h-10 rounded-xl border-2 flex items-center justify-center hover:bg-gray-100">
               <FaHistory size={20} className="text-green-700" />
@@ -96,10 +105,12 @@ const Header = () => {
                 </div>
 
                 <hr className="my-3" />
-
+                  <NavLink to="/profile">
                 <button className="flex items-center gap-3 w-full py-2 px-3 rounded-lg bg-green-50 text-green-700 font-medium">
                   <FiUser /> View Profile
                 </button>
+                  </NavLink>
+
 
                 <button className="flex items-center justify-center gap-3 w-full py-2 px-3 rounded-lg bg-red-500 text-white font-semibold mt-4">
                   <FiLogOut /> Logout

@@ -51,7 +51,7 @@ const Footer = () => {
       </div>
 
       <div className="text-center text-gray-400 mt-10">
-        © 2024 ExamHub. All rights reserved.
+        © 2025 ExamHub. All rights reserved.
       </div>
     </footer>
   );
