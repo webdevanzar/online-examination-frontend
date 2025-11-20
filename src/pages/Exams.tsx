@@ -1,18 +1,49 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Exams() {
   const navigate = useNavigate();
 
   const exams = [
-    { id: 1, name: "Data Communication", date: "Nov 25, 2025", status: "Available" },
-    { id: 2, name: "Computer Networks", date: "Nov 28, 2025", status: "Coming Soon" },
-    { id: 3, name: "Microprocessor", date: "Dec 5, 2025", status: "Available" },
+    {
+      id: 1,
+      name: "Data Communication",
+      date: "Nov 25, 2025",
+      status: "Available",
+    },
+    {
+      id: 2,
+      name: "Computer Networks",
+      date: "Nov 28, 2025",
+      status: "Coming Soon",
+    },
+    {
+      id: 3,
+      name: "Microprocessor",
+      date: "Dec 5, 2025",
+      status: "Available",
+    },
+    {
+      id: 4,
+      name: "Operating Systems",
+      date: "Dec 10, 2025",
+      status: "Available",
+    },
+    {
+      id: 5,
+      name: "Database Management Systems",
+      date: "Dec 15, 2025",
+      status: "Coming Soon",
+    },
+    {
+      id: 6,
+      name: "Software Engineering",
+      date: "Dec 20, 2025",
+      status: "Available",
+    },
   ];
 
   return (
     <div className="relative px-10 mt-20 mb-20">
-
       {/* Soft Background */}
       <div className="absolute -top-20 -left-32 w-72 h-72 bg-green-100 rounded-full opacity-40 blur-3xl"></div>
       <div className="absolute -bottom-20 -right-32 w-72 h-72 bg-green-100 rounded-full opacity-40 blur-3xl"></div>
@@ -39,7 +70,6 @@ export default function Exams() {
             key={exam.id}
             className="bg-white rounded-3xl border shadow-lg hover:shadow-2xl transition-all p-8 hover:-translate-y-2"
           >
-
             {/* Status Badge */}
             <div className="flex justify-between items-center mb-4">
               <span
@@ -52,7 +82,9 @@ export default function Exams() {
                 {exam.status}
               </span>
 
-              <span className="text-gray-400 text-sm font-medium">ID: {exam.id}</span>
+              <span className="text-gray-400 text-sm font-medium">
+                ID: {exam.id}
+              </span>
             </div>
 
             {/* Exam Title */}
@@ -76,8 +108,7 @@ export default function Exams() {
             {/* Button */}
             <button
               onClick={() => {
-                if (exam.status === "Available")
-                  navigate(`/exam/${exam.id}`);
+                if (exam.status === "Available") navigate(`/exam/${exam.id}`);
               }}
               disabled={exam.status !== "Available"}
               className={`w-full py-3 rounded-xl mt-2 font-semibold transition-all ${
@@ -94,4 +125,3 @@ export default function Exams() {
     </div>
   );
 }
-

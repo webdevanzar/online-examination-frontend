@@ -36,12 +36,26 @@ const Header = () => {
 
         {/* DESKTOP NAV */}
         <nav className="hidden md:flex gap-10 text-lg font-medium">
-          <a href="/" className="hover:text-green-700">
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              `hover:text-green-700 transition ${
+                isActive ? "border-b-2 border-green-700 pb-1" : ""
+              }`
+            }
+          >
             Home
-          </a>
-          <a href="#courses" className="hover:text-green-700">
+          </NavLink>
+          <NavLink
+            to="/cources"
+            className={({ isActive }) =>
+              `hover:text-green-700 transition ${
+                isActive ? "border-b-2 border-green-700 pb-1" : ""
+              }`
+            }
+          >
             Courses
-          </a>
+          </NavLink>
           <NavLink
             to="/exams"
             className={({ isActive }) =>
@@ -105,12 +119,11 @@ const Header = () => {
                 </div>
 
                 <hr className="my-3" />
-                  <NavLink to="/profile">
-                <button className="flex items-center gap-3 w-full py-2 px-3 rounded-lg bg-green-50 text-green-700 font-medium">
-                  <FiUser /> View Profile
-                </button>
-                  </NavLink>
-
+                <NavLink to="/profile">
+                  <button className="flex items-center gap-3 w-full py-2 px-3 rounded-lg bg-green-50 text-green-700 font-medium">
+                    <FiUser /> View Profile
+                  </button>
+                </NavLink>
 
                 <button className="flex items-center justify-center gap-3 w-full py-2 px-3 rounded-lg bg-red-500 text-white font-semibold mt-4">
                   <FiLogOut /> Logout

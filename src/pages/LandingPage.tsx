@@ -9,7 +9,7 @@ import {
   FiAward,
   FiZap,
 } from "react-icons/fi";
-import { Navigation } from "lucide-react";
+import { NavLink } from "react-router-dom";
 
 const courses = [
   {
@@ -123,15 +123,12 @@ const LandingPage = () => {
               top: "250px", // Adjust vertical position
               right: "-100px", // Adjust horizontal position (negative to move off-screen)
             }}
-
-            
           />
 
-           <div
+          <div
             className="absolute w-[300px] h-[300px] md:w-[400px] md:h-[400px] top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full opacity-60"
             style={{
               backgroundColor: "#DFF8E6", // Light green color
-             
             }}
           />
         </div>
@@ -226,7 +223,10 @@ const LandingPage = () => {
         </section>
 
         {/* COURSES */}
-        <section id="courses" className="py-20 px-4 bg-white/40 backdrop-blur-xl rounded-xl">
+        <section
+          id="courses"
+          className="py-20 px-4 bg-white/40 backdrop-blur-xl rounded-xl"
+        >
           <div className="text-center mb-12">
             <span
               className="inline-block px-5 py-2 rounded-full text-sm font-medium mb-4"
@@ -288,7 +288,10 @@ const LandingPage = () => {
         </section>
 
         {/* EXAMS */}
-        <section id="exams" className="py-20 px-4 backdrop-blur-xl rounded-xl mt-12">
+        <section
+          id="exams"
+          className="py-20 px-4 backdrop-blur-xl rounded-xl mt-12"
+        >
           <div className="text-center mb-12">
             <span
               className="inline-block px-5 py-2 rounded-full text-sm font-medium mb-4"
@@ -370,10 +373,7 @@ const LandingPage = () => {
           style={{ background: "rgb(232, 255, 241)" }} // same mint background as screenshot
         >
           <div
-            className="
-      max-w-5xl mx-auto text-center rounded-2xl
-      p-10 md:p-16
-    "
+            className="max-w-5xl mx-auto text-center rounded-2xl p-10 md:p-16"
             style={{ background: colors.green }}
           >
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
@@ -384,16 +384,11 @@ const LandingPage = () => {
               Take our exams and get instant feedback to identify your strengths
               and areas for improvement.
             </p>
-            <Nav link to="/exams">
-            <button
-              className="
-        bg-white text-green-700 px-6 py-3 rounded-lg font-medium 
-        transition-all duration-300 hover:shadow-lg hover:scale-[1.05]
-      "
-            >
-              Browse All Exams
-            </button>
-            </Nav>
+            <NavLink to="/exams">
+              <button className="bg-white text-green-700 px-6 py-3 rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-[1.05]">
+                Browse All Exams
+              </button>
+            </NavLink>
           </div>
         </section>
       </div>
