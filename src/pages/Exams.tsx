@@ -105,20 +105,21 @@ export default function Exams() {
               </p>
             </div>
 
-            {/* Button */}
             <button
-              onClick={() => {
-                if (exam.status === "Available") navigate(`/exam/${exam.id}`);
-              }}
-              disabled={exam.status !== "Available"}
-              className={`w-full py-3 rounded-xl mt-2 font-semibold transition-all ${
-                exam.status === "Available"
-                  ? "bg-green-600 text-white hover:bg-green-700"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              {exam.status === "Available" ? "Enter Exam" : "Coming Soon"}
-            </button>
+           onClick={() => {
+               if (exam.status === "Available")
+                navigate("/instructions", { state: { exam } });
+               }}
+                disabled={exam.status !== "Available"}
+           className={`w-full py-3 rounded-xl mt-2 font-semibold transition-all ${
+         exam.status === "Available"
+               ? "bg-green-600 text-white hover:bg-green-700"
+             : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                   }`}
+             >
+                View Instructions
+                 </button>
+
           </div>
         ))}
       </div>

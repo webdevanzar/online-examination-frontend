@@ -8,7 +8,14 @@ import Layout from "./layouts/Layout";
 import Exams from "./pages/Exams";
 import Profile from "./pages/Profie";
 import Courses from "./pages/Cources";
-
+import InstructionPage from "./pages/InstructionPage";
+import CountdownPage from "./pages/CountdownPage";  
+import SystemCheckPage from "./pages/SystemCheckPage";
+import ExamStartPage from "./pages/ExamStartPage";
+import { sampleExam } from "./utils/SampleExam";
+import ExamSubmitPage from "./pages/ExamSubmit";
+import ReviewAnswersPage from "./pages/Reviewpage";
+import ResultPage from "./pages/ResultPage";
 
 
 function App() {
@@ -25,8 +32,13 @@ function App() {
         <Route path="/cources" element={<Courses />} />
         <Route path="/exams" element={<Exams />} /> 
         <Route path="/profile" element={<Profile />} />
-
-       
+        <Route path="/instructions" element={<InstructionPage />} />
+        <Route path="/countdown" element={<CountdownPage />} />
+        <Route path="/system-check" element={<SystemCheckPage />} />
+        <Route path="/exam-start" element={<ExamStartPage exam={sampleExam}  />} />
+        <Route path="/exam-submit" element={<ExamSubmitPage />} />
+        <Route path="/review/:id" element={<ReviewAnswersPage />} />
+        <Route path="/results" element={<ResultPage />} />
          
       </Route>
 
