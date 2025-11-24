@@ -13,9 +13,12 @@ import CountdownPage from "./pages/CountdownPage";
 import SystemCheckPage from "./pages/SystemCheckPage";
 import ExamStartPage from "./pages/ExamStartPage";
 import { sampleExam } from "./utils/SampleExam";
-import ExamSubmitPage from "./pages/ExamSubmit";
+import ExamSubmit from "./pages/ExamSubmit";
 import ReviewAnswersPage from "./pages/Reviewpage";
 import ResultPage from "./pages/ResultPage";
+import About from "./pages/About";
+import ForgotPassword from "./pages/forgotpassword";
+import Resetlink from "./pages/Resetlink";
 
 
 function App() {
@@ -24,22 +27,24 @@ function App() {
 
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
-
+        <Route path="/forgotpassword" element={<ForgotPassword />} />
+        <Route path="/resetlink" element={<Resetlink />} />
       {/* PAGES WITH HEADER + FOOTER */}
       <Route element={<Layout />}>
         <Route index element={<LandingPage />} />
         <Route path="/exam-history" element={<ExamHistory />} />
-        <Route path="/cources" element={<Courses />} />
+        <Route path="/courses" element={<Courses />} />
         <Route path="/exams" element={<Exams />} /> 
         <Route path="/profile" element={<Profile />} />
-        <Route path="/instructions" element={<InstructionPage />} />
+        <Route path="/about" element={<About />} />
         <Route path="/countdown" element={<CountdownPage />} />
         <Route path="/system-check" element={<SystemCheckPage />} />
+        <Route path="/instructions" element={<InstructionPage />} />
         <Route path="/exam-start" element={<ExamStartPage exam={sampleExam}  />} />
-        <Route path="/exam-submit" element={<ExamSubmitPage />} />
+        <Route path="/exam-submit" element={<ExamSubmit  />} />
         <Route path="/review/:id" element={<ReviewAnswersPage />} />
         <Route path="/results" element={<ResultPage />} />
-         
+        <Route path="/resetlink" element={<Resetlink />} />
       </Route>
 
     </Routes>
@@ -47,3 +52,4 @@ function App() {
 }
 
 export default App;
+

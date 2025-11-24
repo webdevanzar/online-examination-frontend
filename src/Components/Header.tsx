@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { FiBell, FiMenu, FiX, FiUser, FiLogOut } from "react-icons/fi";
 import { FaHistory } from "react-icons/fa";
-import { colors } from "../utils/colortheme";
 import Notification from "./Notification";
 
 const Header = () => {
@@ -20,18 +19,13 @@ const Header = () => {
       <header className="bg-white shadow-sm py-4 px-6 flex justify-between items-center sticky top-0 z-50">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <div
-            className="px-3 py-1 rounded-md text-white font-bold"
-            style={{ background: colors.green }}
-          >
-            EX
-          </div>
-          <h1
-            className="text-xl font-semibold"
-            style={{ color: colors.darkText }}
-          >
-            ExamHub
-          </h1>
+          <Link to="/" className="flex items-center">
+            <img 
+              src="/src/assets/ExamHub.png" 
+              alt="ExamHub Logo" 
+              className="h-10 w-auto"
+            />
+          </Link>
         </div>
 
         {/* DESKTOP NAV */}
@@ -47,7 +41,17 @@ const Header = () => {
             Home
           </NavLink>
           <NavLink
-            to="/cources"
+            to="/about"
+            className={({ isActive }) =>
+              `hover:text-green-700 transition ${
+                isActive ? "border-b-2 border-green-700 pb-1" : ""
+              }`
+            }
+          >
+            About
+          </NavLink>
+          <NavLink
+            to="/courses"
             className={({ isActive }) =>
               `hover:text-green-700 transition ${
                 isActive ? "border-b-2 border-green-700 pb-1" : ""
@@ -119,7 +123,7 @@ const Header = () => {
                 </div>
 
                 <hr className="my-3" />
-                <NavLink to="/profile">
+                <NavLink to="/profile" onClick={() => setDropdownOpen(false)}>
                   <button className="flex items-center gap-3 w-full py-2 px-3 rounded-lg bg-green-50 text-green-700 font-medium">
                     <FiUser /> View Profile
                   </button>

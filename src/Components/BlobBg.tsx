@@ -8,6 +8,7 @@ const themeBlobColors = [
   "rgba(221, 230, 216, 0.25)", // border gray
 ];
 
+
 interface BlobConfig {
   id: number;
   x: number;

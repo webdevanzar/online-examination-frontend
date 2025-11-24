@@ -8,17 +8,17 @@ const LoginPage = () => {
       <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-8">
         
         <img
-          src="/src/assets/examHub.png" 
-          alt="Exam Illustration"
+          src="/src/assets/Intro.png" 
+          
           className="max-w-md w-[80%]"
         />
-
+        
         <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mt-6 text-center">
-          Exam Mastery Hub
+          ExamHub
         </h1>
 
         <p className="text-gray-600 text-center max-w-sm mt-3">
-          Unleash Your Academic Success with Exam Mastery Hub’s 
+          Unleash Your Academic Success with ExamHub’s 
           Exam Excellence Platform
         </p>
       </div>
@@ -29,8 +29,8 @@ const LoginPage = () => {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <img
-            src="/src/assets/logo.png"  
-            alt="Mastery Hub Logo"
+            src="/src/assets/exhu.png"  
+            
             className="h-14"
           />
         </div>
@@ -38,6 +38,7 @@ const LoginPage = () => {
         <div className="bg-white shadow-md rounded-2xl p-8 w-full max-w-md mx-auto">
 
           {/* Username */}
+        
           <label className="text-gray-700 font-medium">Email</label>
           <input
             type="text"

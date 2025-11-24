@@ -1,5 +1,3 @@
-import React from "react";
-
 const colors = {
   lightGreenBg: "#EAFCEF",
   green: "#2A7F3F",
