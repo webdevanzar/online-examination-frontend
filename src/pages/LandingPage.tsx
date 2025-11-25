@@ -11,7 +11,7 @@ import {
 } from "react-icons/fi";
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
-import AnimatedBubbles from "../Components/Animated";
+
 
 const courses = [
   {
@@ -74,9 +74,9 @@ const exams = [
 const LandingPage = () => {
   return (
     <div className="relative min-h-screen overflow-hidden">
-      <AnimatedBubbles />
+      
       {/* Background Circles */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="-z-10 absolute inset-0 overflow-hidden">
         {/* Left Circle (larger) */}
         <motion.div
           className="absolute w-[300px] h-[300px] md:w-[400px] md:h-[400px] rounded-full"
@@ -149,6 +149,7 @@ const LandingPage = () => {
             to="/exams"
             className="px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 transform hover:scale-[1.05] hover:shadow-lg hover:brightness-110 inline-block"
             style={{ background: colors.green }}
+            onClick={() => console.log('Navigating to /exams')}
           >
             Get Started →
           </NavLink>
@@ -156,6 +157,7 @@ const LandingPage = () => {
           <NavLink
             to="/courses"
             className="px-6 py-3 rounded-lg font-semibold border transition-all duration-300 hover:bg-green-800 hover:text-white hover:scale-[1.05] inline-block"
+            onClick={() => console.log('Navigating to /courses')}
           >
             Learn More
           </NavLink>

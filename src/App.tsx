@@ -6,8 +6,8 @@ import SignUp from "./pages/Signup";
 import { ExamHistory } from "./pages/ExamHistory";
 import Layout from "./layouts/Layout";
 import Exams from "./pages/Exams";
-import Profile from "./pages/Profie";
-import Courses from "./pages/Cources";
+import Profile from "./pages/Profile";
+import Courses from "./pages/Courses";
 import InstructionPage from "./pages/InstructionPage";
 import CountdownPage from "./pages/CountdownPage";  
 import SystemCheckPage from "./pages/SystemCheckPage";
@@ -17,8 +17,9 @@ import ExamSubmit from "./pages/ExamSubmit";
 import ReviewAnswersPage from "./pages/Reviewpage";
 import ResultPage from "./pages/ResultPage";
 import About from "./pages/About";
-import ForgotPassword from "./pages/forgotpassword";
+import ForgotPassword from "./pages/ForgotPassword";
 import Resetlink from "./pages/Resetlink";
+import TypingProfileSetup from "./pages/TypingProfileSetup";
 
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/forgotpassword" element={<ForgotPassword />} />
         <Route path="/resetlink" element={<Resetlink />} />
+         
       {/* PAGES WITH HEADER + FOOTER */}
       <Route element={<Layout />}>
         <Route index element={<LandingPage />} />
@@ -45,6 +47,8 @@ function App() {
         <Route path="/review/:id" element={<ReviewAnswersPage />} />
         <Route path="/results" element={<ResultPage />} />
         <Route path="/resetlink" element={<Resetlink />} />
+        <Route path="/typing-profile-setup" element={<TypingProfileSetup />} />
+
       </Route>
 
     </Routes>
@@ -52,4 +56,15 @@ function App() {
 }
 
 export default App;
+
+
+
+
+
+
+
+
+
+
+
 
