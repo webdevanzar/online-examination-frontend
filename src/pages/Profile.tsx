@@ -8,7 +8,9 @@ import {
   Check,
   Play,
   User2,
+  Keyboard,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 type Subject = { name: string; level: number };
 type User = {
@@ -66,6 +68,8 @@ const Profile: React.FC = () => {
     setDraft(user);
   }, [user]);
 
+  const navigate = useNavigate();
+
   // cleanup object URLs on unmount
   useEffect(() => {
     return () => {
@@ -78,6 +82,10 @@ const Profile: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleRetakeTypingTest = () => {
+    navigate('/RetakeTypingProfile');
+  };
 
   // Handlers
   const handleChange = (
@@ -233,6 +241,23 @@ const Profile: React.FC = () => {
                 <Trash2 size={14} /> Remove
               </button>
             </div>
+          </div>
+
+          {/* Retake Typing Test Button */}
+          <div className="bg-white rounded-2xl shadow p-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">
+              Typing Profile
+            </h3>
+            <button
+              onClick={handleRetakeTypingTest}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-[#1e6b32] transition-colors"
+            >
+              <Keyboard size={18} />
+              Retake Typing Test
+            </button>
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              Update your typing pattern for enhanced security
+            </p>
           </div>
 
           {/* Quick Stats */}

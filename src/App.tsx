@@ -20,6 +20,8 @@ import About from "./pages/About";
 import ForgotPassword from "./pages/ForgotPassword";
 import Resetlink from "./pages/Resetlink";
 import TypingProfileSetup from "./pages/TypingProfileSetup";
+import RetakeTypingProfile from "./pages/RetakeTypingProfile";
+
 
 
 function App() {
@@ -48,7 +50,7 @@ function App() {
         <Route path="/results" element={<ResultPage />} />
         <Route path="/resetlink" element={<Resetlink />} />
         <Route path="/typing-profile-setup" element={<TypingProfileSetup />} />
-
+        <Route path="/RetakeTypingProfile" element={<RetakeTypingProfile />} />
       </Route>
 
     </Routes>

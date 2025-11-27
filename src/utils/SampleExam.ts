@@ -1,4 +1,6 @@
-export const sampleExam = {
+import type { ExamQuestion } from "../pages/ExamStartPage";
+
+export const sampleExam: { duration: number; questions: ExamQuestion[] } = {
   duration: 60, // 60 minutes
   questions: [
     {

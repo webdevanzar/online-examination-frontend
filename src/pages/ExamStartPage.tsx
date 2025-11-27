@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 const colors = {
   lightGreenBg: "#EAFCEF",
@@ -9,16 +9,18 @@ const colors = {
   softText: "#6C7A6A",
 };
 
-interface Option {
-  id: number;
+
+
+interface ExamOption {
+  id: number | string;
   text: string;
 }
 
-interface Question {
+export interface ExamQuestion {
   id: number;
-  type: "MCQ" | "TYPING";
   question: string;
-  options?: Option[];
+  type: "MCQ" | "TYPING";
+  options?: ExamOption[];
   answerMinLength?: number;
   answerMaxLength?: number;
 }
@@ -26,7 +28,7 @@ interface Question {
 interface ExamProps {
   exam: {
     duration: number; // in minutes
-    questions: any[];
+    questions: ExamQuestion[];
   };
 }
 
@@ -34,10 +36,15 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<{ [key: number]: any }>({});
+  const [answers, setAnswers] = useState<Record<number, string | number>>({});
   const [marked, setMarked] = useState<number[]>([]);
 
   const [timeLeft, setTimeLeft] = useState(exam.duration * 60);
+
+  const handleSubmit = useCallback(() => {
+    console.log("Submitted Answers: ", answers);
+    alert("Exam submitted!");
+  }, [answers]);
 
   // TIMER
   useEffect(() => {
@@ -53,12 +60,7 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
-
-  const handleSubmit = () => {
-    console.log("Submitted Answers: ", answers);
-    alert("Exam submitted!");
-  };
+  }, [handleSubmit]);
 
   // CAMERA PREVIEW
   useEffect(() => {
@@ -68,7 +70,7 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
           video: true,
         });
         if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (err) {
+      } catch {
         console.log("Camera Blocked");
       }
     };
