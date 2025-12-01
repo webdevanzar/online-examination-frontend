@@ -1,4 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { io, Socket } from "socket.io-client";
+import { useCheckFrame } from "../services/auth";
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
 const colors = {
   lightGreenBg: "#EAFCEF",
@@ -8,8 +14,6 @@ const colors = {
   darkText: "#333333",
   softText: "#6C7A6A",
 };
-
-
 
 interface ExamOption {
   id: number | string;
@@ -32,19 +36,70 @@ interface ExamProps {
   };
 }
 
+interface KeystrokeEvent {
+  key: string;
+  event: "keydown" | "keyup";
+  timestamp: number;
+}
+
 const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
+  const { attemptId } = useParams<{ attemptId: string }>();
+  const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const checkFrame = useCheckFrame();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string | number>>({});
   const [marked, setMarked] = useState<number[]>([]);
-
   const [timeLeft, setTimeLeft] = useState(exam.duration * 60);
+
+  // Proctoring state
+  const [warningCount, setWarningCount] = useState(0);
+  const [maxWarnings] = useState(3);
+  const [showWarning, setShowWarning] = useState(false);
+  const [warningMessage, setWarningMessage] = useState("");
+  const [terminated, setTerminated] = useState(false);
+  const [keystrokeBuffer, setKeystrokeBuffer] = useState<KeystrokeEvent[]>([]);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   const handleSubmit = useCallback(() => {
     console.log("Submitted Answers: ", answers);
     alert("Exam submitted!");
+    // TODO: Call backend to submit exam
   }, [answers]);
+
+  const captureAndSendFrame = useCallback(async () => {
+    if (!videoRef.current || !attemptId) return;
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.drawImage(videoRef.current, 0, 0);
+      const frameData = canvas.toDataURL("image/jpeg");
+      // delegate to API hook (handles baseURL/credentials)
+      checkFrame.mutate({ attemptId, frame: frameData });
+    } catch (err) {
+      console.error("Failed to send frame:", err);
+    }
+  }, [attemptId, checkFrame]);
+
+  const verifyKeystrokePattern = useCallback(async () => {
+    try {
+      await axios.post(
+        `${BACKEND_URL}/api/biometric/user/verify-keystroke`,
+        { keystrokes: keystrokeBuffer },
+        { withCredentials: true }
+      );
+      setKeystrokeBuffer([]);
+    } catch (err) {
+      console.error("Keystroke verification failed:", err);
+    }
+  }, [keystrokeBuffer]);
 
   // TIMER
   useEffect(() => {
@@ -66,16 +121,95 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
   useEffect(() => {
     const startCam = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: true,
         });
-        if (videoRef.current) videoRef.current.srcObject = stream;
+        setStream(mediaStream);
+        if (videoRef.current) videoRef.current.srcObject = mediaStream;
       } catch {
         console.log("Camera Blocked");
+        alert("Camera access is required for this exam. Please enable camera access.");
       }
     };
     startCam();
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
   }, []);
+
+  // FRAME CAPTURE - Every 5 seconds
+  useEffect(() => {
+    if (!attemptId || terminated) return;
+
+    const interval = setInterval(() => {
+      if (videoRef.current && !terminated) {
+        captureAndSendFrame();
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [terminated, attemptId, captureAndSendFrame]);
+
+  // KEYSTROKE VERIFICATION - Every 60 seconds
+  useEffect(() => {
+    if (terminated) return;
+
+    const interval = setInterval(() => {
+      if (keystrokeBuffer.length > 50 && !terminated) {
+        verifyKeystrokePattern();
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [keystrokeBuffer, terminated, verifyKeystrokePattern]);
+
+  // WEBSOCKET CONNECTION
+  useEffect(() => {
+    if (!attemptId) return;
+
+    const socket = io(BACKEND_URL);
+    socketRef.current = socket;
+
+    socket.emit("join", `attempt:${attemptId}`);
+
+    socket.on("cheat:warning", (data: { warningCount: number; message: string }) => {
+      setWarningCount(data.warningCount);
+      setWarningMessage(data.message);
+      setShowWarning(true);
+
+      // Auto-hide warning after 5 seconds
+      setTimeout(() => setShowWarning(false), 5000);
+    });
+
+    socket.on("attempt:terminated", (data: { reason: string }) => {
+      setTerminated(true);
+      alert(`Exam terminated: ${data.reason}`);
+      navigate("/exams");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [attemptId, navigate]);
+
+  
+
+  const handleKeystrokeDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    setKeystrokeBuffer((prev) => [
+      ...prev,
+      { key: e.key, event: "keydown", timestamp: Date.now() },
+    ]);
+  };
+
+  const handleKeystrokeUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    setKeystrokeBuffer((prev) => [
+      ...prev,
+      { key: e.key, event: "keyup", timestamp: Date.now() },
+    ]);
+  };
 
   const q = exam.questions[currentIndex];
 
@@ -97,9 +231,27 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="min-h-screen flex relative"
       style={{ backgroundColor: colors.lightGreenBg }}
     >
+      {/* WARNING BANNER */}
+      {showWarning && (
+        <div className="fixed top-0 left-0 right-0 bg-yellow-500 text-white p-4 z-50 flex items-center justify-between shadow-lg">
+          <div>
+            <strong>
+              Warning {warningCount}/{maxWarnings}:
+            </strong>{" "}
+            {warningMessage}
+          </div>
+          <button
+            onClick={() => setShowWarning(false)}
+            className="text-white font-bold text-2xl hover:text-gray-200"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* ---------------- LEFT SIDE: QUESTION PANEL ---------------- */}
       <div className="flex-1 p-8 overflow-y-auto">
         <div
@@ -129,7 +281,7 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
               {q.options?.map((opt) => (
                 <label
                   key={opt.id}
-                  className="flex items-center p-4 rounded-xl cursor-pointer"
+                  className="flex items-center p-4 rounded-xl cursor-pointer hover:bg-gray-100 transition"
                   style={{
                     backgroundColor: colors.lightGray,
                     border: `1px solid ${colors.borderGray}`,
@@ -143,6 +295,7 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
                       setAnswers({ ...answers, [q.id]: opt.id })
                     }
                     className="mr-3"
+                    disabled={terminated}
                   />
                   <span style={{ color: colors.darkText }}>{opt.text}</span>
                 </label>
@@ -156,16 +309,19 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
               onChange={(e) =>
                 setAnswers({ ...answers, [q.id]: e.target.value })
               }
+              onKeyDown={handleKeystrokeDown}
+              onKeyUp={handleKeystrokeUp}
               value={answers[q.id] || ""}
               minLength={q.answerMinLength}
               maxLength={q.answerMaxLength}
-              className="w-full h-40 p-4 rounded-xl mt-4"
+              className="w-full h-40 p-4 rounded-xl mt-4 focus:ring-2 focus:ring-green-500 focus:outline-none"
               style={{
                 backgroundColor: colors.lightGray,
                 border: `1px solid ${colors.borderGray}`,
                 color: colors.darkText,
               }}
               placeholder={`Write your answer here (Min: ${q.answerMinLength}, Max: ${q.answerMaxLength})`}
+              disabled={terminated}
             />
           )}
 
@@ -173,20 +329,22 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
           <div className="flex justify-between mt-8">
             <button
               onClick={() => setCurrentIndex((i) => Math.max(i - 1, 0))}
-              className="px-5 py-3 rounded-xl text-white font-semibold"
+              className="px-5 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
               style={{ backgroundColor: colors.green }}
+              disabled={terminated}
             >
               Previous
             </button>
 
             <button
               onClick={toggleMark}
-              className="px-5 py-3 rounded-xl font-semibold"
+              className="px-5 py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50"
               style={{
                 backgroundColor: marked.includes(q.id)
                   ? "#FFD966"
                   : colors.lightGray,
               }}
+              disabled={terminated}
             >
               {marked.includes(q.id) ? "Marked" : "Mark for Review"}
             </button>
@@ -197,8 +355,9 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
                   Math.min(i + 1, exam.questions.length - 1)
                 )
               }
-              className="px-5 py-3 rounded-xl text-white font-semibold"
+              className="px-5 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
               style={{ backgroundColor: colors.green }}
+              disabled={terminated}
             >
               Next
             </button>
@@ -206,8 +365,9 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
 
           <button
             onClick={handleSubmit}
-            className="w-full py-4 rounded-2xl mt-10 text-xl text-white font-bold"
+            className="w-full py-4 rounded-2xl mt-10 text-xl text-white font-bold hover:opacity-90 transition disabled:opacity-50"
             style={{ backgroundColor: colors.green }}
+            disabled={terminated}
           >
             Submit Exam
           </button>
@@ -235,6 +395,22 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
           </p>
         </div>
 
+        {/* Warning Counter */}
+        {warningCount > 0 && (
+          <div
+            className="p-4 rounded-2xl shadow mb-6 text-center"
+            style={{ backgroundColor: "#FFF3CD", border: "1px solid #FFD966" }}
+          >
+            <h3 className="font-bold text-yellow-800 mb-1">Warnings</h3>
+            <p className="text-2xl font-bold text-yellow-900">
+              {warningCount} / {maxWarnings}
+            </p>
+            <p className="text-xs text-yellow-700 mt-1">
+              Exam will auto-terminate after {maxWarnings} warnings
+            </p>
+          </div>
+        )}
+
         {/* Question Palette */}
         <div
           className="p-5 rounded-2xl shadow mb-6"
@@ -260,8 +436,9 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
                 <button
                   key={qq.id}
                   onClick={() => setCurrentIndex(i)}
-                  className="w-10 h-10 rounded-xl font-bold"
+                  className="w-10 h-10 rounded-xl font-bold hover:opacity-80 transition disabled:opacity-50"
                   style={{ backgroundColor: bg, color: colors.darkText }}
+                  disabled={terminated}
                 >
                   {i + 1}
                 </button>
@@ -285,6 +462,8 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
           <video
             ref={videoRef}
             autoPlay
+            muted
+            playsInline
             className="w-full rounded-xl"
             style={{ backgroundColor: "#000" }}
           ></video>
@@ -292,6 +471,14 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
           <p className="text-sm mt-3" style={{ color: colors.softText }}>
             Keep your face visible. Moving away may trigger alerts.
           </p>
+
+          {terminated && (
+            <div className="mt-3 p-3 bg-red-100 border border-red-400 rounded-lg">
+              <p className="text-sm text-red-700 font-semibold text-center">
+                Exam Terminated
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

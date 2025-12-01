@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowRight, FiUser, FiType, FiRotateCw } from 'react-icons/fi';
+import { toast } from 'sonner';
+import { useEnrollKeystrokeUser, type KeystrokeEvent } from '../services/biometric';
 
 const TypingProfileSetup = () => {
   const [step, setStep] = useState(1);
@@ -9,16 +11,21 @@ const TypingProfileSetup = () => {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [results, setResults] = useState<{wpm: number, accuracy: number}[]>([]);
   const [isComplete, setIsComplete] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
+  const [keystrokes, setKeystrokes] = useState<KeystrokeEvent[]>([]);
+  const enrollKeystrokeUser = useEnrollKeystrokeUser();
 
   const sampleText = "The quick brown fox jumps over the lazy dog.";
   const totalRounds = 8;
+  const canEnroll = keystrokes.length > 0;
 
   useEffect(() => {
     if (step === 2 && inputRef.current) {
       inputRef.current.focus();
-      setStartTime(Date.now());
+      const timer = setTimeout(() => setStartTime(Date.now()), 0);
+      return () => clearTimeout(timer);
     }
   }, [step, currentRound]);
 
@@ -57,13 +64,44 @@ const TypingProfileSetup = () => {
         // All rounds completed
         setResults(newResults);
         setIsComplete(true);
+        if (canEnroll && !submitted && !enrollKeystrokeUser.isPending) {
+          setSubmitted(true);
+          const onSuccess = () => toast.success('Typing profile enrolled');
+          const onError = () => { toast.error('Failed to enroll typing profile'); setSubmitted(false); };
+          enrollKeystrokeUser.mutate(
+            keystrokes,
+            { onSuccess, onError }
+          );
+        }
       }
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (step !== 2 || isComplete) return;
+    // Block paste shortcut (Ctrl/Cmd + V)
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
+      e.preventDefault();
+      return;
+    }
+    setKeystrokes((prev) => [...prev, { key: e.key, event: 'keydown', timestamp: Date.now() }]);
+  };
+
+  const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (step !== 2 || isComplete) return;
+    setKeystrokes((prev) => [...prev, { key: e.key, event: 'keyup', timestamp: Date.now() }]);
+  };
+
   const saveProfile = () => {
-    // In a real app, you would save this to your backend
-    navigate('/exams'); // Redirect to exams page after setup
+    if (canEnroll && !submitted && !enrollKeystrokeUser.isPending) {
+      setSubmitted(true);
+      enrollKeystrokeUser.mutate(
+        keystrokes,
+        { onSettled: () => navigate('/exams') }
+      );
+      return;
+    }
+    navigate('/exams');
   };
 
   const resetTest = () => {
@@ -71,6 +109,7 @@ const TypingProfileSetup = () => {
     setResults([]);
     setTypedText('');
     setIsComplete(false);
+    setSubmitted(false);
   };
 
   return (
@@ -175,6 +214,14 @@ const TypingProfileSetup = () => {
                   ref={inputRef}
                   value={typedText}
                   onChange={handleTyping}
+                  onKeyDown={handleKeyDown}
+                  onKeyUp={handleKeyUp}
+                  onPaste={(e) => e.preventDefault()}
+                  onCopy={(e) => e.preventDefault()}
+                  onCut={(e) => e.preventDefault()}
+                  onDrop={(e) => e.preventDefault()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onContextMenu={(e) => e.preventDefault()}
                   className="w-full p-4 border-2 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-lg font-mono"
                   rows={2}
                   placeholder="Type the sentence here..."
@@ -254,15 +301,17 @@ const TypingProfileSetup = () => {
               <div className="flex justify-center gap-4">
                 <button
                   onClick={resetTest}
-                  className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-6 rounded-lg"
+                  disabled={enrollKeystrokeUser.isPending || submitted}
+                  className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-6 rounded-lg disabled:opacity-60"
                 >
                   Retake Test
                 </button>
                 <button
                   onClick={saveProfile}
-                  className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg"
+                  disabled={enrollKeystrokeUser.isPending || submitted}
+                  className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-60"
                 >
-                  Continue to Dashboard
+                  {enrollKeystrokeUser.isPending ? 'Submitting…' : 'Continue to Dashboard'}
                 </button>
               </div>
             </div>

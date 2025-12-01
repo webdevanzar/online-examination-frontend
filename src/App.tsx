@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, BrowserRouter } from "react-router-dom";
 
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
@@ -9,64 +9,74 @@ import Exams from "./pages/Exams";
 import Profile from "./pages/Profile";
 import Courses from "./pages/Courses";
 import InstructionPage from "./pages/InstructionPage";
-import CountdownPage from "./pages/CountdownPage";  
+import CountdownPage from "./pages/CountdownPage";
 import SystemCheckPage from "./pages/SystemCheckPage";
 import ExamStartPage from "./pages/ExamStartPage";
 import { sampleExam } from "./utils/SampleExam";
-import ExamSubmit from "./pages/ExamSubmit";
 import ReviewAnswersPage from "./pages/Reviewpage";
 import ResultPage from "./pages/ResultPage";
 import About from "./pages/About";
-import ForgotPassword from "./pages/ForgotPassword";
 import Resetlink from "./pages/Resetlink";
 import TypingProfileSetup from "./pages/TypingProfileSetup";
-import RetakeTypingProfile from "./pages/RetakeTypingProfile";
-
-
+import { ExamSubmitPage } from "./pages/ExamSubmit";
+import ForgotPassword from "./pages/Forgotpassword";
+import ExamEnrollmentPage from "./pages/ExamEnrollmentPage";
+import { ProtectedRouteAfterLogin } from "./middleware/ProtectedRouteAfterLogin";
+import { ProtectedRoute } from "./middleware/ProtectedRoute";
+import { Toaster } from "sonner";
 
 function App() {
   return (
-    <Routes>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<ProtectedRouteAfterLogin />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/forgotpassword" element={<ForgotPassword />} />
+          <Route path="/resetlink" element={<Resetlink />} />
+        </Route>
 
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/forgotpassword" element={<ForgotPassword />} />
-        <Route path="/resetlink" element={<Resetlink />} />
-         
-      {/* PAGES WITH HEADER + FOOTER */}
-      <Route element={<Layout />}>
-        <Route index element={<LandingPage />} />
-        <Route path="/exam-history" element={<ExamHistory />} />
-        <Route path="/courses" element={<Courses />} />
-        <Route path="/exams" element={<Exams />} /> 
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/countdown" element={<CountdownPage />} />
-        <Route path="/system-check" element={<SystemCheckPage />} />
-        <Route path="/instructions" element={<InstructionPage />} />
-        <Route path="/exam-start" element={<ExamStartPage exam={sampleExam}  />} />
-        <Route path="/exam-submit" element={<ExamSubmit  />} />
-        <Route path="/review/:id" element={<ReviewAnswersPage />} />
-        <Route path="/results" element={<ResultPage />} />
-        <Route path="/resetlink" element={<Resetlink />} />
-        <Route path="/typing-profile-setup" element={<TypingProfileSetup />} />
-        <Route path="/RetakeTypingProfile" element={<RetakeTypingProfile />} />
-      </Route>
-
-    </Routes>
+        {/* PAGES WITH HEADER + FOOTER */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route index element={<LandingPage />} />
+            <Route path="/exam-history" element={<ExamHistory />} />
+            <Route path="/courses" element={<Courses />} />
+            <Route path="/exams" element={<Exams />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/countdown" element={<CountdownPage />} />
+            <Route path="/system-check" element={<SystemCheckPage />} />
+            <Route path="/instructions" element={<InstructionPage />} />
+            <Route
+              path="/exam/:attemptId/enroll"
+              element={<ExamEnrollmentPage />}
+            />
+            <Route
+              path="/exam/:attemptId/start"
+              element={<ExamStartPage exam={sampleExam} />}
+            />
+            <Route
+              path="/exam-start"
+              element={<ExamStartPage exam={sampleExam} />}
+            />
+            <Route
+              path="/exam-submit"
+              element={<ExamSubmitPage score={0} total={0} timeTaken={0} />}
+            />
+            <Route path="/review/:id" element={<ReviewAnswersPage />} />
+            <Route path="/results" element={<ResultPage />} />
+            <Route path="/resetlink" element={<Resetlink />} />
+            <Route
+              path="/typing-profile-setup"
+              element={<TypingProfileSetup />}
+            />
+          </Route>
+        </Route>
+      </Routes>
+      <Toaster />
+    </BrowserRouter>
   );
 }
 
 export default App;
-
-
-
-
-
-
-
-
-
-
-
-

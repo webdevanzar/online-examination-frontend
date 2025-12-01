@@ -1,6 +1,36 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { FormProvider, useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { InputField } from "../Components/InputField";
+import { useStudentLogin } from "../services/auth";
+
+const loginSchema = z.object({
+  email: z.string().email("Enter a valid email"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+type LoginForm = z.infer<typeof loginSchema>;
 
 const LoginPage = () => {
+  const navigate = useNavigate();
+  const loginMutation = useStudentLogin();
+  const methods = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
+
+  const onSubmit = (data: LoginForm) => {
+    loginMutation.mutate(
+      { email: data.email, password: data.password },
+      {
+        onSuccess: () => {
+          navigate("/");
+        },
+      }
+    );
+  };
+
   return (
     <div className="w-full min-h-screen bg-[#EAFCEF] flex flex-col md:flex-row">
 
@@ -31,39 +61,43 @@ const LoginPage = () => {
           <img
             src="/src/assets/exhu.png"  
             
-            className="h-14"
+            className="h-12"
           />
         </div>
 
         <div className="bg-white shadow-md rounded-2xl p-8 w-full max-w-md mx-auto">
 
-          {/* Username */}
-        
-          <label className="text-gray-700 font-medium">Email</label>
-          <input
-            type="text"
-            placeholder="johnsmith007"
-            className="w-full mt-1 mb-4 px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-400"
-          />
+          <FormProvider {...methods}>
+            <form onSubmit={methods.handleSubmit(onSubmit)}>
+              {/* Email */}
+              <InputField<LoginForm>
+                name="email"
+                label="Email"
+                type="email"
+                placeholder="example@email.com"
+                className="mb-4"
+              />
 
-          {/* Password */}
-          <label className="text-gray-700 font-medium">Password</label>
-          <input
-            type="password"
-            placeholder="************"
-            className="w-full mt-1 px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-green-400"
-          />
+              {/* Password */}
+              <InputField<LoginForm>
+                name="password"
+                label="Password"
+                type="password"
+                placeholder="************"
+              />
 
-          <div className="flex justify-end mt-2">
-            <Link to="/forgotpassword" className="text-green-600 text-sm hover:underline">
-              Forgot password?
-            </Link>
-          </div>
+              <div className="flex justify-end mt-2">
+                <Link to="/forgotpassword" className="text-green-600 text-sm hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
 
-          {/* Sign In Button */}
-          <button className="w-full mt-6 bg-[#1D1F20] text-white py-3 rounded-lg text-lg hover:bg-black transition">
-            Sign in
-          </button>
+              {/* Sign In Button */}
+              <button type="submit" disabled={loginMutation.isPending} className="w-full mt-6 bg-[#1D1F20] text-white py-3 rounded-lg text-lg hover:bg-black transition disabled:opacity-60">
+                {loginMutation.isPending ? "Signing in..." : "Sign in"}
+              </button>
+            </form>
+          </FormProvider>
 
           {/* Divider */}
           <div className="flex items-center my-6">

@@ -1,4 +1,3 @@
-import React from "react";
 
 const colors = {
   lightGreenBg: "#EAFCEF",
@@ -9,7 +8,7 @@ const colors = {
   softText: "#6C7A6A",
 };
 
-export default function ExamSubmitPage({ score, total, timeTaken }) {
+export const ExamSubmitPage = ({ score, total, timeTaken }) => {
   return (
     <div
       className="min-h-screen flex justify-center items-center p-6"

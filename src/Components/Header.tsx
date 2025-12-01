@@ -3,11 +3,16 @@ import { Link, NavLink } from "react-router-dom";
 import { FiBell, FiMenu, FiX, FiUser, FiLogOut } from "react-icons/fi";
 import { FaHistory } from "react-icons/fa";
 import Notification from "./Notification";
+import { useSelector } from "react-redux";
+import type { RootState } from "../store";
 
 const Header = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { fullName, email, profileImage } = useSelector(
+    (state: RootState) => state.auth
+  );
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -20,9 +25,9 @@ const Header = () => {
         {/* Logo */}
         <div className="flex items-center gap-2">
           <Link to="/" className="flex items-center">
-            <img 
-              src="/src/assets/ExamHub.png" 
-              alt="ExamHub Logo" 
+            <img
+              src="/src/assets/ExamHub.png"
+              alt="ExamHub Logo"
               className="h-10 w-auto"
             />
           </Link>
@@ -113,12 +118,24 @@ const Header = () => {
                 "
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <FiUser size={24} className="text-green-700" />
-                  </div>
+                  {profileImage ? (
+                    <img
+                      title="Profile"
+                      src={profileImage}
+                      alt="User Avatar"
+                      className="w-8 h-8 rounded-full object-cover  cursor-pointer sm:ml-2"
+                    />
+                  ) : (
+                    <img
+                      title="Profile"
+                      src={"https://ui-avatars.com/api/?name=" + fullName}
+                      alt="User Avatar"
+                      className="w-8 h-8 rounded-full object-cover  cursor-pointer sm:ml-2"
+                    />
+                  )}
                   <div>
-                    <p className="font-semibold text-gray-800">John Doe</p>
-                    <p className="text-sm text-gray-500">john@example.com</p>
+                    <p className="font-semibold text-gray-800">{fullName}</p>
+                    <p className="text-sm text-gray-500">{email}</p>
                   </div>
                 </div>
 
