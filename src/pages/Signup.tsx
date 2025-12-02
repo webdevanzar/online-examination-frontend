@@ -75,7 +75,7 @@ const SignUp = () => {
         />
 
         <h1 className="text-3xl font-bold text-gray-800 text-center mt-6">
-          Join Mastery Hub
+          Join ExamHub
         </h1>
         <p className="text-gray-600 text-center max-w-sm mt-3">
           Create your account and start your secure proctored exams journey.
