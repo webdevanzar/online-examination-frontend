@@ -2,7 +2,7 @@ import { Controller, FormProvider, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputField } from "../Components/InputField";
-import { useStudentRegister } from "../services/auth";
+import { useStudentGoogleAuth, useStudentRegister } from "../services/auth";
 import { useNavigate } from "react-router-dom";
 
 const passwordSchema = z
@@ -33,6 +33,7 @@ type SignupForm = z.infer<typeof signupSchema>;
 
 const SignUp = () => {
   const navigate = useNavigate();
+    const { googleLogin, isPending } = useStudentGoogleAuth();
   const registerMutation = useStudentRegister();
   const methods = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
@@ -192,6 +193,8 @@ const SignUp = () => {
           {/* GOOGLE SIGNUP */}
           <button
             type="button"
+            onClick={() => googleLogin()}
+            disabled={isPending}
             className="w-full border border-gray-300 py-3 rounded-lg flex items-center justify-center gap-3 hover:bg-gray-100 transition"
           >
             <img

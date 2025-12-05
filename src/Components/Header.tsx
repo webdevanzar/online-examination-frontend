@@ -1,18 +1,35 @@
 import { useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { FiBell, FiMenu, FiX, FiUser, FiLogOut } from "react-icons/fi";
 import { FaHistory } from "react-icons/fa";
 import Notification from "./Notification";
 import { useSelector } from "react-redux";
 import type { RootState } from "../store";
+import { useStudentLogout } from "../services/auth";
+import { toast } from "sonner";
 
 const Header = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const logoutMutation = useStudentLogout();
   const { fullName, email, profileImage } = useSelector(
     (state: RootState) => state.auth
   );
+
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logoutMutation.mutate(undefined, {
+      onSuccess: () => {
+        toast.success("Logged out");
+        navigate("/login");
+      },
+      onError: () => {
+        toast.error("Failed to logout");
+      },
+    });
+  };
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -146,7 +163,7 @@ const Header = () => {
                   </button>
                 </NavLink>
 
-                <button className="flex items-center justify-center gap-3 w-full py-2 px-3 rounded-lg bg-red-500 text-white font-semibold mt-4">
+                <button onClick={() => { setDropdownOpen(false); handleLogout(); }} className="flex items-center justify-center gap-3 w-full py-2 px-3 rounded-lg bg-red-500 text-white font-semibold mt-4">
                   <FiLogOut /> Logout
                 </button>
               </div>
@@ -223,7 +240,10 @@ const Header = () => {
                   <FiUser size={20} /> View Profile
                 </button>
 
-                <button className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-lg bg-red-500 text-white font-semibold mt-6">
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-lg bg-red-500 text-white font-semibold mt-6"
+                >
                   <FiLogOut size={20} /> Logout
                 </button>
               </div>

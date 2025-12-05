@@ -4,8 +4,13 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { useDispatch } from "react-redux";
 import { type AppDispatch } from "../store";
-import { loginSuccess, logoutSuccess, updateProfile } from "../store/slice/authSlice";
+import {
+  loginSuccess,
+  logoutSuccess,
+  updateProfile,
+} from "../store/slice/authSlice";
 import { axiosInstance } from "../utils/interceptor";
+import { useGoogleLogin } from "@react-oauth/google";
 
 // Using shared axiosInstance with baseURL /api and 401 interceptor
 
@@ -40,6 +45,76 @@ type RegisterPayload = {
   dob: string;
 };
 
+// =================== GOOGLE Auth ===================
+const googleStudentAuthApi = async (data: { accessToken: string }) => {
+  const res = await axiosInstance.post("/student/auth/google", data);
+  return res.data as StudentLoginResponse;
+};
+export const useStudentGoogleAuth = () => {
+  const dispatch = useDispatch<AppDispatch>();
+
+  const mutation = useMutation({
+    mutationFn: googleStudentAuthApi,
+    onSuccess: (data) => {
+      dispatch(
+        loginSuccess({
+          isAuthenticated: true,
+          id: data.user.id,
+          fullName: data.user.fullName,
+          email: data.user.email,
+          phoneNumber: data.user.phoneNumber,
+          profileImage: data.user.profileImage,
+          dob: data.user.dob,
+          gender: data.user.gender,
+          selfieVideo: data.user.selfieVideo,
+          isActive: true,
+          createdAt: new Date(data.user.createdAt),
+          updatedAt: new Date(data.user.updatedAt),
+          unreadNotificationCount: data.user.unreadNotificationCount,
+        })
+      );
+      toast.success("Logged in with Google");
+    },
+    onError: (err: unknown) => {
+      const error = err as AxiosError<{ message: string }>;
+      const msg =
+        error.response?.data?.message ||
+        "Something went wrong with Google login";
+
+      toast.error(msg, {
+        duration: 1500,
+        style: {
+          background: "#FEE2E2",
+          color: "#B91C1C",
+          border: "1px solid #FCA5A5",
+          padding: "12px 16px",
+          borderRadius: "8px",
+          fontSize: "14px",
+          fontWeight: "500",
+        },
+      });
+    },
+  });
+
+  //  Google popup logic stays in hook (not API)
+  const googleLogin = useGoogleLogin({
+    scope: "openid profile email",
+    onSuccess: (tokenResponse) => {
+      mutation.mutate({
+        accessToken: tokenResponse.access_token,
+      });
+    },
+    onError: () => {
+      toast.error("Google login cancelled");
+    },
+  });
+
+  return {
+    googleLogin,
+    isPending: mutation.isPending,
+  };
+};
+
 const loginStudentApi = async (data: LoginPayload) => {
   const res = await axiosInstance.post("/student/login", data);
   return res.data as StudentLoginResponse;
@@ -70,7 +145,7 @@ export const useStudentLogin = () => {
       toast.success("Logged in successfully");
     },
     onError: (err: unknown) => {
-      const error = err as AxiosError<{ message?: string }>; 
+      const error = err as AxiosError<{ message?: string }>;
       const msg = error.response?.data?.message || "Something went wrong";
       toast.error(msg, {
         duration: 1500,
@@ -196,7 +271,7 @@ export const useStudentLogout = () => {
       toast.success("Logged out");
     },
     onError: (err: unknown) => {
-      const error = err as AxiosError<{ message?: string }>; 
+      const error = err as AxiosError<{ message?: string }>;
       const msg = error.response?.data?.message || "Something went wrong";
       toast.error(msg, {
         duration: 1500,
@@ -228,7 +303,7 @@ export const useStudentRegister = () => {
       qc.invalidateQueries({ queryKey: ["students"] });
     },
     onError: (err: unknown) => {
-      const error = err as AxiosError<{ message?: string }>; 
+      const error = err as AxiosError<{ message?: string }>;
       const msg = error.response?.data?.message || "Something went wrong";
       toast.error(msg, {
         duration: 1500,
@@ -322,7 +397,7 @@ export const useStudentProfileUpdate = () => {
       toast.success("Profile updated");
     },
     onError: (err: unknown) => {
-      const error = err as AxiosError<{ message?: string }>; 
+      const error = err as AxiosError<{ message?: string }>;
       const msg = error.response?.data?.message || "Something went wrong";
       toast.error(msg, {
         duration: 1500,
@@ -370,7 +445,7 @@ export const useStudentProfileImageUpdate = () => {
       toast.success("Profile image updated");
     },
     onError: (err: unknown) => {
-      const error = err as AxiosError<{ message?: string }>; 
+      const error = err as AxiosError<{ message?: string }>;
       const msg = error.response?.data?.message || "Something went wrong";
       toast.error(msg, {
         duration: 1500,
@@ -418,7 +493,7 @@ export const useStudentSelfieVideoUpdate = () => {
       toast.success("Selfie video updated");
     },
     onError: (err: unknown) => {
-      const error = err as AxiosError<{ message?: string }>; 
+      const error = err as AxiosError<{ message?: string }>;
       const msg = error.response?.data?.message || "Something went wrong";
       toast.error(msg, {
         duration: 1500,
@@ -437,7 +512,13 @@ export const useStudentSelfieVideoUpdate = () => {
 };
 
 type ExamQuestionOption = { id: string; text: string; isCorrect?: boolean };
-type ExamQuestion = { id: string; text: string; type: "mcq" | "typing"; marks: number; options?: ExamQuestionOption[] };
+type ExamQuestion = {
+  id: string;
+  text: string;
+  type: "mcq" | "typing";
+  marks: number;
+  options?: ExamQuestionOption[];
+};
 type ExamQuestionsResponse = { questions: ExamQuestion[] };
 
 const getExamQuestionsApi = async (examId: string) => {
@@ -454,7 +535,11 @@ export const useExamQuestions = (examId: string, enabled = true) => {
   });
 };
 
-type StartExamResponse = { message: string; attemptId: string; startedAt: string };
+type StartExamResponse = {
+  message: string;
+  attemptId: string;
+  startedAt: string;
+};
 
 const startExamApi = async (examId: string) => {
   const res = await axiosInstance.post(`/student/exams/${examId}/start`);
@@ -475,8 +560,15 @@ type SaveAnswerPayload = {
   writtenAnswer?: string | null;
 };
 
-const saveAnswerApi = async ({ examId, attemptId, ...body }: SaveAnswerPayload) => {
-  const res = await axiosInstance.post(`/student/exams/${examId}/attempt/${attemptId}/answer`, body);
+const saveAnswerApi = async ({
+  examId,
+  attemptId,
+  ...body
+}: SaveAnswerPayload) => {
+  const res = await axiosInstance.post(
+    `/student/exams/${examId}/attempt/${attemptId}/answer`,
+    body
+  );
   return res.data as { message: string };
 };
 
@@ -489,11 +581,18 @@ export const useSaveAnswer = () => {
 type AutoSavePayload = {
   examId: string;
   attemptId: string;
-  answers: Array<{ questionId: string; selectedOptionId?: string | null; writtenAnswer?: string | null }>;
+  answers: Array<{
+    questionId: string;
+    selectedOptionId?: string | null;
+    writtenAnswer?: string | null;
+  }>;
 };
 
 const autoSaveApi = async ({ examId, attemptId, answers }: AutoSavePayload) => {
-  const res = await axiosInstance.post(`/student/exams/${examId}/attempt/${attemptId}/autosave`, { answers });
+  const res = await axiosInstance.post(
+    `/student/exams/${examId}/attempt/${attemptId}/autosave`,
+    { answers }
+  );
   return res.data as { message: string };
 };
 
@@ -507,7 +606,9 @@ type SubmitExamPayload = { examId: string; attemptId: string };
 type SubmitExamResponse = { message: string; score: number };
 
 const submitExamApi = async ({ examId, attemptId }: SubmitExamPayload) => {
-  const res = await axiosInstance.post(`/student/exams/${examId}/attempt/${attemptId}/submit`);
+  const res = await axiosInstance.post(
+    `/student/exams/${examId}/attempt/${attemptId}/submit`
+  );
   return res.data as SubmitExamResponse;
 };
 
@@ -537,7 +638,10 @@ type FraudItem = { type: string; confidence: number; isMajor?: boolean };
 type CheckFrameResponse = { fraud: FraudItem[] } & Record<string, unknown>;
 
 const checkFrameApi = async ({ attemptId, frame }: CheckFramePayload) => {
-  const res = await axiosInstance.post(`/student/attempt/${attemptId}/check-frame`, { frame });
+  const res = await axiosInstance.post(
+    `/student/attempt/${attemptId}/check-frame`,
+    { frame }
+  );
   return res.data as CheckFrameResponse;
 };
 
