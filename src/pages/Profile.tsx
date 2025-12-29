@@ -52,6 +52,7 @@ const Profile: React.FC = () => {
   const profileImageDelete = useStudentProfileImageDelete();
   const selfieVideoDelete = useStudentSelfieVideoDelete();
   const auth = useSelector((state: RootState) => state.auth);
+  const hasTypingProfile = auth.hasTypingProfile || false;
   const [editing, setEditing] = useState(false);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
 
@@ -344,10 +345,12 @@ return (
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-[#1e6b32] transition-colors"
           >
             <Keyboard size={18} />
-            Setup / Retake Typing Profile
+            {hasTypingProfile ? "Update Typing Profile" : "Setup Typing Profile"}
           </button>
           <p className="text-xs text-gray-500 mt-2 text-center">
-            Update your typing pattern for enhanced security
+            {hasTypingProfile
+              ? "Update your typing pattern for enhanced security"
+              : "Set up your typing pattern for identity verification"}
           </p>
         </div>
       </aside>

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { io, Socket } from "socket.io-client";
-import { useCheckFrame } from "../services/auth";
+import { useCheckFrame, useExamDetailsByAttempt } from "../services/auth";
 import { useVoiceMonitoring } from "../services/voice";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
@@ -22,19 +22,12 @@ interface ExamOption {
 }
 
 export interface ExamQuestion {
-  id: number;
+  id: number | string;
   question: string;
   type: "MCQ" | "TYPING";
   options?: ExamOption[];
   answerMinLength?: number;
   answerMaxLength?: number;
-}
-
-interface ExamProps {
-  exam: {
-    duration: number; // in minutes
-    questions: ExamQuestion[];
-  };
 }
 
 interface KeystrokeEvent {
@@ -43,17 +36,25 @@ interface KeystrokeEvent {
   timestamp: number;
 }
 
-const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
+const ExamStartPage: React.FC = () => {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
+
+  // Fetch exam details using attemptId
+  const { data: examDetails, isLoading, isError, error } = useExamDetailsByAttempt(
+    attemptId || "",
+    !!attemptId
+  );
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const checkFrame = useCheckFrame();
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, string | number>>({});
-  const [marked, setMarked] = useState<number[]>([]);
-  const [timeLeft, setTimeLeft] = useState(exam.duration * 60);
+  const [answers, setAnswers] = useState<Record<string, string | number>>({});
+  const [marked, setMarked] = useState<string[]>([]);
+  const [endTimeMs, setEndTimeMs] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   // Proctoring state
   const [warningCount, setWarningCount] = useState(0);
@@ -62,20 +63,112 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
   const [warningMessage, setWarningMessage] = useState("");
   const [terminated, setTerminated] = useState(false);
   const [keystrokeBuffer, setKeystrokeBuffer] = useState<KeystrokeEvent[]>([]);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [, setStream] = useState<MediaStream | null>(null);
+  const didAutoSubmitRef = useRef(false);
 
-  // Voice monitoring
+  // Voice monitoring - checks every 2 minutes
   const { voiceStatus, isMonitoring } = useVoiceMonitoring(
     attemptId,
     !terminated && !!attemptId,
-    400 // Poll every 400ms
+    120000 // Check every 2 minutes (120000ms)
   );
+
+  const timeLeft = Math.max(0, Math.floor(((endTimeMs ?? nowMs) - nowMs) / 1000));
+
+  // Block browser back button and shortcuts during exam
+  useEffect(() => {
+    if (terminated || !attemptId) return;
+
+    // Block back button
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      window.history.pushState(null, "", window.location.href);
+      alert("Navigation blocked during active exam. Use 'End Exam' button to exit.");
+    };
+
+    // Push state to enable popstate blocking
+    window.history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", handlePopState);
+
+    // Block page close/refresh
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "Are you sure? Your exam progress may be lost.";
+      return e.returnValue;
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Block keyboard shortcuts (Ctrl+W, Alt+F4, F5, etc.)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Block Ctrl+W (close tab)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
+        e.preventDefault();
+        alert("Cannot close tab during exam.");
+      }
+      // Block Alt+F4 (close window) - limited browser support
+      if (e.altKey && e.key === 'F4') {
+        e.preventDefault();
+        alert("Cannot close window during exam.");
+      }
+      // Block F5 (refresh)
+      if (e.key === 'F5') {
+        e.preventDefault();
+        alert("Cannot refresh during exam.");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [terminated, attemptId]);
+
+  // Request fullscreen on exam start
+  useEffect(() => {
+    if (document.documentElement.requestFullscreen && !terminated) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.log("Fullscreen request failed:", err);
+      });
+    }
+
+    // Monitor fullscreen exit
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && !terminated) {
+        alert("Please stay in fullscreen mode during the exam.");
+        // Re-request fullscreen
+        setTimeout(() => {
+          document.documentElement.requestFullscreen?.();
+        }, 1000);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      // Exit fullscreen on unmount
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.();
+      }
+    };
+  }, [terminated]);
 
   const handleSubmit = useCallback(() => {
     console.log("Submitted Answers: ", answers);
     alert("Exam submitted!");
     // TODO: Call backend to submit exam
   }, [answers]);
+
+  const handleEndExam = () => {
+    const confirmEnd = window.confirm(
+      "Are you sure you want to end the exam? This will submit your current answers."
+    );
+    if (confirmEnd) {
+      handleSubmit();
+    }
+  };
 
   const captureAndSendFrame = useCallback(async () => {
     if (!videoRef.current || !attemptId) return;
@@ -116,42 +209,59 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
 
   // TIMER
   useEffect(() => {
+    if (terminated) return;
+    if (!examDetails) return;
+
     const timer = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          clearInterval(timer);
-          alert("Time is up! Auto submitting...");
-          handleSubmit();
-          return 0;
-        }
-        return t - 1;
-      });
+      setEndTimeMs((prev) =>
+        prev ?? Date.now() + examDetails.exam.duration * 60 * 1000
+      );
+      setNowMs(Date.now());
     }, 1000);
-    return () => clearInterval(timer);
-  }, [handleSubmit]);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [examDetails, terminated]);
+
+  useEffect(() => {
+    if (terminated) return;
+    if (endTimeMs === null) return;
+    if (timeLeft > 0) return;
+    if (didAutoSubmitRef.current) return;
+
+    didAutoSubmitRef.current = true;
+    alert("Time is up! Auto submitting...");
+    handleSubmit();
+  }, [endTimeMs, handleSubmit, terminated, timeLeft]);
 
   // CAMERA PREVIEW
   useEffect(() => {
+    let localStream: MediaStream | null = null;
+
     const startCam = async () => {
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: true,
         });
+        localStream = mediaStream;
         setStream(mediaStream);
         if (videoRef.current) videoRef.current.srcObject = mediaStream;
-      } catch {
-        console.log("Camera Blocked");
+      } catch (err) {
+        console.error("Camera access error:", err);
         alert("Camera access is required for this exam. Please enable camera access.");
       }
     };
+
     startCam();
 
+    // Cleanup: stop camera when component unmounts
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [stream]);
+  }, []); // Empty dependency array - only run once on mount
 
   // FRAME CAPTURE - Every 5 seconds
   useEffect(() => {
@@ -185,7 +295,9 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
 
   // KEYSTROKE VERIFICATION - After typing questions
   useEffect(() => {
-    const prevQ = currentIndex > 0 ? exam.questions[currentIndex - 1] : null;
+    if (!examDetails) return;
+    const questions = examDetails.exam.questions;
+    const prevQ = currentIndex > 0 ? questions[currentIndex - 1] : null;
 
     // If previous question was typing and we have keystroke data, verify
     if (prevQ && prevQ.type === "TYPING" && keystrokeBuffer.length >= 20) {
@@ -195,7 +307,7 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
         }
       });
     }
-  }, [currentIndex, exam.questions, keystrokeBuffer.length, verifyKeystrokePattern]);
+  }, [currentIndex, examDetails, keystrokeBuffer.length, verifyKeystrokePattern]);
 
   // WEBSOCKET CONNECTION
   useEffect(() => {
@@ -210,7 +322,38 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
       "cheat:warning",
       (data: { type: string; warningCount: number; message: string }) => {
         setWarningCount(data.warningCount);
-        setWarningMessage(`[${data.type.toUpperCase()}] ${data.message}`);
+
+        // Create user-friendly message based on fraud type
+        let userMessage = data.message;
+
+        // Face detection warnings
+        if (data.message.includes("Looking away")) {
+          userMessage = "⚠️ Please keep your eyes on the screen";
+        } else if (data.message.includes("Face not centered")) {
+          userMessage = "⚠️ Please position your face in the center of the camera";
+        } else if (data.message.includes("Face too close")) {
+          userMessage = "⚠️ Please move back from the camera";
+        } else if (data.message.includes("Face too far")) {
+          userMessage = "⚠️ Please move closer to the camera";
+        } else if (data.message.includes("Multiple faces")) {
+          userMessage = "⚠️ Multiple faces detected - Ensure you are alone";
+        } else if (data.message.includes("No face")) {
+          userMessage = "⚠️ Your face is not visible - Please stay in view";
+        } else if (data.message.includes("Rapid movement")) {
+          userMessage = "⚠️ Suspicious rapid movement detected";
+        } else if (data.message.includes("frozen screen")) {
+          userMessage = "⚠️ Possible screen fraud detected";
+        } else if (data.message.includes("brightness change")) {
+          userMessage = "⚠️ Sudden screen change detected";
+        } else if (data.message.includes("phone") || data.message.includes("cell phone")) {
+          userMessage = "⚠️ Mobile phone detected - Please remove it";
+        } else if (data.message.includes("book")) {
+          userMessage = "⚠️ Book detected - Please remove study materials";
+        } else if (data.message.includes("laptop") || data.message.includes("computer")) {
+          userMessage = "⚠️ Additional device detected - Only one device allowed";
+        }
+
+        setWarningMessage(userMessage);
         setShowWarning(true);
 
         // Auto-hide warning after 5 seconds
@@ -229,7 +372,43 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
     };
   }, [attemptId, navigate]);
 
-  
+  // Handle loading and error states (after all hooks)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-700">Loading exam...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !examDetails) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md">
+          <div className="text-red-600 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Failed to Load Exam
+          </h2>
+          <p className="text-gray-600 mb-4">
+            {error?.message || "Unable to load exam details. Please try again."}
+          </p>
+          <button
+            onClick={() => navigate("/exams")}
+            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            Back to Exams
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Extract exam and questions from fetched data
+  const exam = examDetails.exam;
+  const questions = exam.questions;
 
   const handleKeystrokeDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     setKeystrokeBuffer((prev) => [
@@ -245,13 +424,15 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
     ]);
   };
 
-  const q = exam.questions[currentIndex];
+  const q = questions[currentIndex];
 
   const toggleMark = () => {
-    if (marked.includes(q.id)) {
-      setMarked(marked.filter((m) => m !== q.id));
+    const qId = String(q.id);
+
+    if (marked.includes(qId)) {
+      setMarked(marked.filter((m) => m !== qId));
     } else {
-      setMarked([...marked, q.id]);
+      setMarked([...marked, qId]);
     }
   };
 
@@ -336,10 +517,10 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
                 >
                   <input
                     type="radio"
-                    name={`q_${q.id}`}
-                    checked={answers[q.id] === opt.id}
+                    name={`q_${String(q.id)}`}
+                    checked={answers[String(q.id)] === opt.id}
                     onChange={() =>
-                      setAnswers({ ...answers, [q.id]: opt.id })
+                      setAnswers({ ...answers, [String(q.id)]: opt.id })
                     }
                     className="mr-3"
                     disabled={terminated}
@@ -354,11 +535,11 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
           {q.type === "TYPING" && (
             <textarea
               onChange={(e) =>
-                setAnswers({ ...answers, [q.id]: e.target.value })
+                setAnswers({ ...answers, [String(q.id)]: e.target.value })
               }
               onKeyDown={handleKeystrokeDown}
               onKeyUp={handleKeystrokeUp}
-              value={answers[q.id] || ""}
+              value={answers[String(q.id)] || ""}
               minLength={q.answerMinLength}
               maxLength={q.answerMaxLength}
               className="w-full h-40 p-4 rounded-xl mt-4 focus:ring-2 focus:ring-green-500 focus:outline-none"
@@ -387,19 +568,19 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
               onClick={toggleMark}
               className="px-5 py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50"
               style={{
-                backgroundColor: marked.includes(q.id)
+                backgroundColor: marked.includes(String(q.id))
                   ? "#FFD966"
                   : colors.lightGray,
               }}
               disabled={terminated}
             >
-              {marked.includes(q.id) ? "Marked" : "Mark for Review"}
+              {marked.includes(String(q.id)) ? "Marked" : "Mark for Review"}
             </button>
 
             <button
               onClick={() =>
                 setCurrentIndex((i) =>
-                  Math.min(i + 1, exam.questions.length - 1)
+                  Math.min(i + 1, questions.length - 1)
                 )
               }
               className="px-5 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
@@ -441,6 +622,16 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
             {formatTime(timeLeft)}
           </p>
         </div>
+
+        {/* End Exam Button */}
+        <button
+          onClick={handleEndExam}
+          disabled={terminated}
+          className="w-full py-3 rounded-xl mb-6 text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
+          style={{ backgroundColor: "#DC2626" }}
+        >
+          End Exam
+        </button>
 
         {/* Warning Counter */}
         {warningCount > 0 && (
@@ -504,9 +695,10 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
           </h2>
 
           <div className="grid grid-cols-5 gap-3">
-            {exam.questions.map((qq, i) => {
-              const answered = answers[qq.id];
-              const isMarked = marked.includes(qq.id);
+            {questions.map((qq, i) => {
+              const qqId = String(qq.id);
+              const answered = answers[qqId];
+              const isMarked = marked.includes(qqId);
 
               let bg = colors.lightGray;
               if (answered) bg = colors.green;
@@ -514,7 +706,7 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
 
               return (
                 <button
-                  key={qq.id}
+                  key={qqId}
                   onClick={() => setCurrentIndex(i)}
                   className="w-10 h-10 rounded-xl font-bold hover:opacity-80 transition disabled:opacity-50"
                   style={{ backgroundColor: bg, color: colors.darkText }}
@@ -532,12 +724,22 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
           className="p-5 rounded-2xl shadow"
           style={{ backgroundColor: "white" }}
         >
-          <h2
-            className="text-xl font-bold mb-3"
-            style={{ color: colors.green }}
-          >
-            Camera Feed
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2
+              className="text-xl font-bold"
+              style={{ color: colors.green }}
+            >
+              Camera Feed
+            </h2>
+            {!terminated && (
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-green-600 font-semibold">
+                  Monitoring Active
+                </span>
+              </div>
+            )}
+          </div>
 
           <video
             ref={videoRef}
@@ -548,9 +750,14 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
             style={{ backgroundColor: "#000" }}
           ></video>
 
-          <p className="text-sm mt-3" style={{ color: colors.softText }}>
-            Keep your face visible. Moving away may trigger alerts.
-          </p>
+          <div className="mt-3">
+            <p className="text-sm" style={{ color: colors.softText }}>
+              Keep your face visible. Moving away may trigger alerts.
+            </p>
+            <p className="text-xs mt-1" style={{ color: colors.softText }}>
+              Checked every 5 seconds
+            </p>
+          </div>
 
           {terminated && (
             <div className="mt-3 p-3 bg-red-100 border border-red-400 rounded-lg">

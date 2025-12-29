@@ -17,63 +17,119 @@ export interface VoiceStatus {
 export const useVoiceMonitoring = (
   attemptId: string | undefined,
   enabled: boolean = true,
-  pollingInterval: number = 400 // ms
+  checkInterval: number = 120000 // Check every 2 minutes (120000ms)
 ) => {
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastReportedIssuesRef = useRef<string>("");
+  const speechDetectionCountRef = useRef<number>(0);
+  const lastViolationTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (!enabled || !attemptId) {
       return;
     }
 
-    // Poll Voice ML Worker for status
-    const pollVoiceStatus = async () => {
+    // Check voice status periodically (every 2 minutes)
+    const checkVoiceStatus = async () => {
       try {
-        const response = await axios.get<VoiceStatus>(
-          `${VOICE_ML_URL}/voice-status`
-        );
-        const status = response.data;
-        setVoiceStatus(status);
+        // Collect multiple samples over a short period to get accurate reading
+        const samples: VoiceStatus[] = [];
+        const sampleCount = 10; // Take 10 samples
+        const sampleInterval = 1000; // 1 second between samples
 
-        // If there are issues, report to backend
-        if (status.issues && status.issues.length > 0) {
-          const issuesKey = status.issues.sort().join(",");
+        for (let i = 0; i < sampleCount; i++) {
+          try {
+            const response = await axios.get<VoiceStatus>(
+              `${VOICE_ML_URL}/voice-status`,
+              { timeout: 2000 }
+            );
+            samples.push(response.data);
 
-          // Only report if issues changed (prevent duplicate reports)
-          if (issuesKey !== lastReportedIssuesRef.current) {
-            lastReportedIssuesRef.current = issuesKey;
+            // Wait between samples
+            if (i < sampleCount - 1) {
+              await new Promise(resolve => setTimeout(resolve, sampleInterval));
+            }
+          } catch (err) {
+            console.error("Voice sample error:", err);
+          }
+        }
+
+        if (samples.length === 0) {
+          console.warn("No voice samples collected");
+          return;
+        }
+
+        // Calculate average speech probability from samples
+        const avgSpeechProbability = samples.reduce(
+          (sum, s) => sum + (s.speech_probability || 0),
+          0
+        ) / samples.length;
+
+        // Count how many samples detected speech above threshold
+        const speechDetectedCount = samples.filter(
+          s => (s.speech_probability || 0) > 0.3
+        ).length;
+
+        // Update status with average
+        const latestStatus = samples[samples.length - 1];
+        setVoiceStatus({
+          ...latestStatus,
+          speech_probability: avgSpeechProbability,
+        });
+
+        // Speech detection threshold: if more than 40% of samples detected speech
+        const speechDetectionThreshold = sampleCount * 0.4;
+
+        if (speechDetectedCount >= speechDetectionThreshold) {
+          speechDetectionCountRef.current += 1;
+
+          // Only report violation if:
+          // 1. Speech detected in multiple checks
+          // 2. At least 30 seconds since last violation (prevent spam)
+          const now = Date.now();
+          const timeSinceLastViolation = now - lastViolationTimeRef.current;
+
+          if (timeSinceLastViolation > 30000) { // 30 seconds cooldown
+            lastViolationTimeRef.current = now;
 
             await axiosInstance.post(
               `/proctoring/attempt/${attemptId}/voice-violation`,
               {
-                issues: status.issues,
-                speech_probability: status.speech_probability,
-                risk_score: status.risk_score || 0,
+                issues: [`Speech detected (${speechDetectedCount}/${sampleCount} samples)`],
+                speech_probability: avgSpeechProbability,
+                risk_score: Math.min(1.0, avgSpeechProbability * 1.5),
+                detection_count: speechDetectionCountRef.current,
               }
+            );
+
+            console.log(
+              `Voice violation reported: ${avgSpeechProbability.toFixed(2)} probability, ` +
+              `${speechDetectedCount}/${sampleCount} samples with speech`
             );
           }
         } else {
-          lastReportedIssuesRef.current = "";
+          // Reset detection count if no speech detected
+          if (avgSpeechProbability < 0.1) {
+            speechDetectionCountRef.current = 0;
+          }
         }
       } catch (err) {
-        console.error("Voice monitoring error:", err);
+        console.error("Voice monitoring check error:", err);
       }
     };
 
-    // Start polling
-    intervalRef.current = setInterval(pollVoiceStatus, pollingInterval);
+    // Start periodic checks (every 2 minutes)
+    intervalRef.current = setInterval(checkVoiceStatus, checkInterval);
 
-    // Initial poll
-    pollVoiceStatus();
+    // Initial check after 10 seconds (give time for exam to start)
+    setTimeout(checkVoiceStatus, 10000);
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [attemptId, enabled, pollingInterval]);
+  }, [attemptId, enabled, checkInterval]);
 
   return {
     voiceStatus,

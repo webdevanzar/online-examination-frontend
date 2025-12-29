@@ -10,6 +10,7 @@ interface AuthState {
   dob: string;
   gender: string;
   selfieVideo: string;
+  hasTypingProfile: boolean;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -26,6 +27,7 @@ const initialState: AuthState = {
   dob: "",
   gender: "",
   selfieVideo: "",
+  hasTypingProfile: false,
   isActive: false,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -51,6 +53,7 @@ const authSlice = createSlice({
       state.dob = user.dob;
       state.gender = user.gender;
       state.selfieVideo = user.selfieVideo;
+      state.hasTypingProfile = user.hasTypingProfile ?? false;
       state.createdAt = new Date(user.createdAt ?? new Date());
       state.updatedAt = new Date(user.updatedAt ?? new Date());
       state.unreadNotificationCount = user.unreadNotificationCount;
@@ -65,6 +68,7 @@ const authSlice = createSlice({
       state.dob = "";
       state.gender = "";
       state.selfieVideo = "";
+      state.hasTypingProfile = false;
       state.isActive = false;
       state.createdAt = new Date();
       state.updatedAt = new Date();

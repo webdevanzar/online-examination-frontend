@@ -29,6 +29,10 @@ export type VerifyKeystrokeResponse = {
   message: string;
 };
 
+export type TypingProfileStatus = {
+  hasTypingProfile: boolean;
+};
+
 // ===== API functions =====
 const enrollFaceApi = async (attemptId: string) => {
   const res = await axiosInstance.post(`/biometric/attempt/${attemptId}/enroll-face`);
@@ -58,6 +62,11 @@ const getEnrollmentStatusApi = async (attemptId: string) => {
   return res.data as EnrollmentStatus;
 };
 
+const getTypingProfileStatusApi = async () => {
+  const res = await axiosInstance.get(`/biometric/user/typing-profile-status`);
+  return res.data as TypingProfileStatus;
+};
+
 // ===== Hooks =====
 export const useEnrollFace = () => {
   return useMutation<EnrollFaceResponse, unknown, string>({ mutationFn: enrollFaceApi });
@@ -82,6 +91,13 @@ export const useEnrollmentStatus = (attemptId: string, enabled = true) => {
     queryKey: ["enrollment-status", attemptId],
     queryFn: () => getEnrollmentStatusApi(attemptId),
     enabled: !!attemptId && enabled,
+  });
+};
+
+export const useTypingProfileStatus = () => {
+  return useQuery<TypingProfileStatus>({
+    queryKey: ["typing-profile-status"],
+    queryFn: getTypingProfileStatusApi,
   });
 };
 

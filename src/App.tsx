@@ -12,7 +12,6 @@ import InstructionPage from "./pages/InstructionPage";
 import CountdownPage from "./pages/CountdownPage";
 import SystemCheckPage from "./pages/SystemCheckPage";
 import ExamStartPage from "./pages/ExamStartPage";
-import { sampleExam } from "./utils/SampleExam";
 import ReviewAnswersPage from "./pages/Reviewpage";
 import ResultPage from "./pages/ResultPage";
 import About from "./pages/About";
@@ -23,6 +22,7 @@ import ForgotPassword from "./pages/Forgotpassword";
 import ExamEnrollmentPage from "./pages/ExamEnrollmentPage";
 import { ProtectedRouteAfterLogin } from "./middleware/ProtectedRouteAfterLogin";
 import { ProtectedRoute } from "./middleware/ProtectedRoute";
+import { ExamAttemptGuard } from "./middleware/ExamAttemptGuard";
 import { Toaster } from "sonner";
 
 function App() {
@@ -54,11 +54,15 @@ function App() {
             />
             <Route
               path="/exam/:attemptId/start"
-              element={<ExamStartPage exam={sampleExam} />}
+              element={
+                <ExamAttemptGuard>
+                  <ExamStartPage />
+                </ExamAttemptGuard>
+              }
             />
             <Route
               path="/exam-start"
-              element={<ExamStartPage exam={sampleExam} />}
+              element={<ExamStartPage />}
             />
             <Route
               path="/exam-submit"

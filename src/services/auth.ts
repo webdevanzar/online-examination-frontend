@@ -535,6 +535,47 @@ export const useExamQuestions = (examId: string, enabled = true) => {
   });
 };
 
+export type ExamDetails = {
+  exam: {
+    id: string;
+    title: string;
+    description: string;
+    duration: number;
+    totalMarks: number;
+    startTime: string;
+    endTime: string;
+    questions: Array<{
+      id: number | string;
+      question: string;
+      type: "MCQ" | "TYPING";
+      options?: Array<{ id: number | string; text: string }>;
+      answerMinLength?: number;
+      answerMaxLength?: number;
+    }>;
+  };
+  attempt: {
+    id: string;
+    startedAt: string;
+    warningCount: number;
+    maxWarnings: number;
+  };
+};
+
+const getExamDetailsByAttemptApi = async (attemptId: string) => {
+  const res = await axiosInstance.get(`/student/attempt/${attemptId}/exam-details`);
+  return res.data as ExamDetails;
+};
+
+export const useExamDetailsByAttempt = (attemptId: string, enabled = true) => {
+  return useQuery<ExamDetails>({
+    queryKey: ["exam-details", attemptId],
+    queryFn: () => getExamDetailsByAttemptApi(attemptId),
+    enabled: !!attemptId && enabled,
+    staleTime: Infinity, // Exam data shouldn't change during exam
+    retry: 2,
+  });
+};
+
 type StartExamResponse = {
   message: string;
   attemptId: string;
@@ -639,7 +680,7 @@ type CheckFrameResponse = { fraud: FraudItem[] } & Record<string, unknown>;
 
 const checkFrameApi = async ({ attemptId, frame }: CheckFramePayload) => {
   const res = await axiosInstance.post(
-    `/student/attempt/${attemptId}/check-frame`,
+    `/proctoring/attempt/${attemptId}/check-frame`,
     { frame }
   );
   return res.data as CheckFrameResponse;

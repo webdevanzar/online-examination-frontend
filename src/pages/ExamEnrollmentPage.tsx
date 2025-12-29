@@ -1,17 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useEnrollFace, useVerifyFace, useEnrollmentStatus, useEnrollKeystrokeUser, type KeystrokeEvent } from "../services/biometric";
-
-const TYPING_TEXT = "The quick brown fox jumps over the lazy dog.";
-const REQUIRED_TYPING_ROUNDS = 8;
-
-// KeystrokeEvent type comes from biometric service
+import { useEnrollFace, useVerifyFace, useEnrollmentStatus } from "../services/biometric";
 
 const ExamEnrollmentPage: React.FC = () => {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
 
-  // Steps: 1=FaceEnroll, 2=FaceVerify, 3=KeystrokeEnroll, 4=Complete
+  // Steps: 1=FaceEnroll, 2=FaceVerify, 3=Complete (keystroke removed)
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -24,12 +19,6 @@ const ExamEnrollmentPage: React.FC = () => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [verifyAttempts, setVerifyAttempts] = useState(0);
 
-  // Keystroke enrollment
-  const [typingRound, setTypingRound] = useState(0);
-  const [typingInput, setTypingInput] = useState("");
-  const [keystrokeBuffer, setKeystrokeBuffer] = useState<KeystrokeEvent[]>([]);
-  const [keystrokeEnrolled, setKeystrokeEnrolled] = useState(false);
-
   // Enrollment status via service hook
   const { data: enrollStatus } = useEnrollmentStatus(attemptId || "", !!attemptId);
 
@@ -37,15 +26,11 @@ const ExamEnrollmentPage: React.FC = () => {
     if (!enrollStatus) return;
     if (enrollStatus.canStartExam) {
       navigate(`/exam/${attemptId}/start`);
-    } else {
-      if (enrollStatus.faceEnrolled) {
-        setFaceEnrolled(true);
-        setCurrentStep(2);
-      }
-      if (enrollStatus.keystrokeEnrolled) {
-        setKeystrokeEnrolled(true);
-      }
+    } else if (enrollStatus.faceEnrolled) {
+      setFaceEnrolled(true);
+      setCurrentStep(2);
     }
+    // Remove keystrokeEnrolled check
   }, [enrollStatus, attemptId, navigate]);
 
   const enrollFaceMutation = useEnrollFace();
@@ -98,7 +83,7 @@ const ExamEnrollmentPage: React.FC = () => {
           )}%`
         );
         stopCamera();
-        setTimeout(() => setCurrentStep(3), 2000);
+        setTimeout(() => setCurrentStep(3), 2000); // Move to completion
       } else {
         setVerifyAttempts((prev) => prev + 1);
         setError(
@@ -113,28 +98,6 @@ const ExamEnrollmentPage: React.FC = () => {
     }
   };
 
-  const enrollKeystrokeMutation = useEnrollKeystrokeUser();
-  const enrollKeystrokePattern = async () => {
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const data = await enrollKeystrokeMutation.mutateAsync(keystrokeBuffer);
-      if (data.success) {
-        setKeystrokeEnrolled(true);
-        setSuccess("Keystroke pattern enrolled successfully!");
-        setTimeout(() => setCurrentStep(4), 2000);
-      } else {
-        setError("Keystroke enrollment failed. Please try again.");
-      }
-    } catch (err: unknown) {
-      console.error("Keystroke enrollment failed", err);
-      setError(getErrMsg(err, "Keystroke enrollment failed"));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const startCamera = async () => {
     try {
@@ -171,34 +134,6 @@ const ExamEnrollmentPage: React.FC = () => {
     return canvas.toDataURL("image/jpeg");
   };
 
-  const handleKeystrokeDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    setKeystrokeBuffer((prev) => [
-      ...prev,
-      { key: e.key, event: "keydown", timestamp: Date.now() },
-    ]);
-  };
-
-  const handleKeystrokeUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    setKeystrokeBuffer((prev) => [
-      ...prev,
-      { key: e.key, event: "keyup", timestamp: Date.now() },
-    ]);
-  };
-
-  const submitTypingRound = () => {
-    if (typingInput.trim() === "") {
-      setError("Please type something before submitting");
-      return;
-    }
-
-    setTypingInput("");
-    setTypingRound((prev) => prev + 1);
-    setError("");
-
-    if (typingRound + 1 >= REQUIRED_TYPING_ROUNDS) {
-      enrollKeystrokePattern();
-    }
-  };
 
   const proceedToExam = () => {
     navigate(`/exam/${attemptId}/start`);
@@ -228,7 +163,7 @@ const ExamEnrollmentPage: React.FC = () => {
 
         {/* Progress Steps */}
         <div className="flex items-center justify-between mb-8">
-          {[1, 2, 3, 4].map((step) => (
+          {[1, 2, 3].map((step) => (
             <div key={step} className="flex items-center">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
@@ -239,7 +174,7 @@ const ExamEnrollmentPage: React.FC = () => {
               >
                 {step}
               </div>
-              {step < 4 && (
+              {step < 3 && (
                 <div
                   className={`w-16 h-1 mx-2 ${
                     currentStep > step ? "bg-blue-600" : "bg-gray-300"
@@ -318,61 +253,14 @@ const ExamEnrollmentPage: React.FC = () => {
           </div>
         )}
 
-        {/* Step 3: Keystroke Enrollment */}
+        {/* Step 3: Complete */}
         {currentStep === 3 && (
-          <div>
-            <h2 className="text-2xl font-semibold mb-4 text-center">
-              Step 3: Keystroke Pattern Enrollment
-            </h2>
-            <p className="text-gray-700 mb-4 text-center">
-              Type the text below {REQUIRED_TYPING_ROUNDS} times. This helps us
-              recognize your typing pattern.
-            </p>
-
-            <div className="bg-gray-100 p-4 rounded-lg mb-4">
-              <p className="text-center font-mono text-lg">{TYPING_TEXT}</p>
-            </div>
-
-            <p className="text-center mb-2 font-semibold">
-              Round {typingRound + 1} of {REQUIRED_TYPING_ROUNDS}
-            </p>
-
-            <textarea
-              value={typingInput}
-              onChange={(e) => setTypingInput(e.target.value)}
-              onKeyDown={handleKeystrokeDown}
-              onKeyUp={handleKeystrokeUp}
-              placeholder="Type the text above here..."
-              className="w-full border-2 border-gray-300 rounded-lg p-4 font-mono mb-4 focus:border-blue-500 focus:outline-none"
-              rows={3}
-              disabled={loading || keystrokeEnrolled}
-            />
-
-            <div className="text-center">
-              <button
-                onClick={submitTypingRound}
-                disabled={loading || keystrokeEnrolled}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded disabled:bg-gray-400"
-              >
-                {typingRound + 1 < REQUIRED_TYPING_ROUNDS
-                  ? "Next Round"
-                  : loading
-                  ? "Enrolling..."
-                  : "Complete Enrollment"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 4: Complete */}
-        {currentStep === 4 && (
           <div className="text-center">
             <h2 className="text-2xl font-semibold mb-4 text-green-600">
               ✓ Enrollment Complete!
             </h2>
             <p className="text-gray-700 mb-6">
-              Your biometric profile has been successfully created. You can now
-              start the exam.
+              Your face has been successfully verified. You can now start the exam.
             </p>
             <button
               onClick={proceedToExam}
