@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useStartExam } from "../services/auth";
+import type { Exam } from "../services/exam";
 
 const colors = {
   lightGreenBg: "#EAFCEF",
@@ -10,35 +13,67 @@ const colors = {
 };
 
 const InstructionPage = () => {
-  const exam = {
-    examTitle: "Sample Exam",
-    subject: "Computer Science",
-    duration: "60 mins",
-    totalQuestions: 50,
-    totalMarks: 100,
-    passingMarks: 40,
-    instructions: [
-      "Do not refresh or close the browser.",
-      "Webcam and mic may be monitored.",
-      "No switching tabs.",
-      "Stable internet required.",
-      "Submit before time ends.",
-    ],
-    requirements: {
-      cameraRequired: true,
-      microphoneRequired: true,
-      fullScreenRequired: true,
-    },
-    startTime: "2025-11-21T12:00:00Z",
+  const navigate = useNavigate();
+  const location = useLocation();
+  const startExam = useStartExam();
+
+  const exam = (location.state as { exam?: Exam } | null)?.exam;
+
+  const fallbackInstructions = [
+    "Do not refresh or close the browser.",
+    "Webcam and mic may be monitored.",
+    "No switching tabs.",
+    "Stable internet required.",
+    "Submit before time ends.",
+  ];
+
+  const canStart = exam ? new Date() >= new Date(exam.startTime) : false;
+
+  const handleStart = () => {
+    if (!exam) {
+      toast.error("Missing exam details. Please select an exam again.");
+      navigate("/exams");
+      return;
+    }
+
+    startExam.mutate(exam.id, {
+      onSuccess: (data) => {
+        toast.success("Exam started");
+        navigate(`/exam/${data.attemptId}/enroll`, { state: { exam } });
+      },
+      onError: () => {
+        toast.error("Failed to start exam. Please try again.");
+      },
+    });
   };
 
-  const [canStart, setCanStart] = useState(false);
-
-  useEffect(() => {
-    const now = new Date();
-    const start = new Date(exam.startTime);
-    setCanStart(now >= start);
-  }, []);
+  if (!exam) {
+    return (
+      <div
+        className="min-h-screen w-full p-10 flex items-center justify-center"
+        style={{ backgroundColor: colors.lightGreenBg }}
+      >
+        <div
+          className="w-full max-w-xl p-10 rounded-3xl shadow-lg text-center"
+          style={{ backgroundColor: "white", border: `1px solid ${colors.borderGray}` }}
+        >
+          <h1 className="text-2xl font-bold mb-4" style={{ color: colors.darkText }}>
+            Exam details not found
+          </h1>
+          <p className="mb-6" style={{ color: colors.softText }}>
+            Please go back to Exams and click Start Exam again.
+          </p>
+          <button
+            onClick={() => navigate("/exams")}
+            className="px-8 py-3 text-lg font-semibold rounded-xl shadow-md transition-all"
+            style={{ backgroundColor: colors.green, color: "white" }}
+          >
+            Back to Exams
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -58,7 +93,7 @@ const InstructionPage = () => {
           className="text-center text-4xl font-extrabold mb-8"
           style={{ color: colors.green }}
         >
-          {exam.examTitle}
+          {exam.title}
         </h1>
 
         {/* TOP SECTION */}
@@ -77,8 +112,8 @@ const InstructionPage = () => {
               Exam Details
             </h2>
             <p><strong>Subject:</strong> {exam.subject}</p>
-            <p><strong>Duration:</strong> {exam.duration}</p>
-            <p><strong>Total Questions:</strong> {exam.totalQuestions}</p>
+            <p><strong>Duration:</strong> {exam.duration} mins</p>
+            <p><strong>Total Questions:</strong> {exam.questionCount}</p>
           </div>
 
           <div
@@ -115,7 +150,7 @@ const InstructionPage = () => {
           </h2>
 
           <ul className="space-y-3" style={{ color: colors.softText }}>
-            {exam.instructions.map((ins, i) => (
+            {fallbackInstructions.map((ins, i) => (
               <li key={i} className="text-lg">• {ins}</li>
             ))}
           </ul>
@@ -137,9 +172,9 @@ const InstructionPage = () => {
           </h2>
 
           <ul className="space-y-3" style={{ color: colors.softText }}>
-            <li>Camera needed: {exam.requirements.cameraRequired ? "Yes ✔" : "No"}</li>
-            <li>Microphone needed: {exam.requirements.microphoneRequired ? "Yes ✔" : "No"}</li>
-            <li>Full screen required: {exam.requirements.fullScreenRequired ? "Yes ✔" : "No"}</li>
+            <li>Camera / Face detection: {exam.faceDetectionRequired ? "Yes ✔" : "No"}</li>
+            <li>Microphone needed: {exam.microphoneRequired ? "Yes ✔" : "No"}</li>
+            <li>Full screen required: Yes ✔</li>
           </ul>
         </div>
 
@@ -147,6 +182,7 @@ const InstructionPage = () => {
         <div className="flex justify-center">
           <button
             disabled={!canStart}
+            onClick={handleStart}
             className="px-10 py-4 text-lg font-semibold rounded-xl shadow-md transition-all"
             style={{
               backgroundColor: canStart ? colors.green : "#98D6A5",
@@ -154,7 +190,7 @@ const InstructionPage = () => {
               cursor: canStart ? "pointer" : "not-allowed",
             }}
           >
-            {canStart ? "Start Exam" : "Exam Not Started"}
+            {startExam.isPending ? "Starting..." : canStart ? "Start Exam" : "Exam Not Started"}
           </button>
         </div>
       </div>

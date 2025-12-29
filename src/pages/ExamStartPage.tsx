@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { io, Socket } from "socket.io-client";
 import { useCheckFrame } from "../services/auth";
+import { useVoiceMonitoring } from "../services/voice";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
@@ -63,6 +64,13 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
   const [keystrokeBuffer, setKeystrokeBuffer] = useState<KeystrokeEvent[]>([]);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
+  // Voice monitoring
+  const { voiceStatus, isMonitoring } = useVoiceMonitoring(
+    attemptId,
+    !terminated && !!attemptId,
+    400 // Poll every 400ms
+  );
+
   const handleSubmit = useCallback(() => {
     console.log("Submitted Answers: ", answers);
     alert("Exam submitted!");
@@ -92,14 +100,19 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
     try {
       await axios.post(
         `${BACKEND_URL}/api/biometric/user/verify-keystroke`,
-        { keystrokes: keystrokeBuffer },
+        {
+          keystrokes: keystrokeBuffer,
+          attemptId: attemptId, // Pass attemptId for CheatEvent logging
+        },
         { withCredentials: true }
       );
-      setKeystrokeBuffer([]);
+      // Return success to trigger buffer clear in effect
+      return true;
     } catch (err) {
       console.error("Keystroke verification failed:", err);
+      return false;
     }
-  }, [keystrokeBuffer]);
+  }, [keystrokeBuffer, attemptId]);
 
   // TIMER
   useEffect(() => {
@@ -138,7 +151,7 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, []);
+  }, [stream]);
 
   // FRAME CAPTURE - Every 5 seconds
   useEffect(() => {
@@ -158,13 +171,31 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
     if (terminated) return;
 
     const interval = setInterval(() => {
-      if (keystrokeBuffer.length > 50 && !terminated) {
-        verifyKeystrokePattern();
+      if (keystrokeBuffer.length >= 20 && !terminated) {
+        verifyKeystrokePattern().then((success) => {
+          if (success) {
+            setKeystrokeBuffer([]);
+          }
+        });
       }
     }, 60000);
 
     return () => clearInterval(interval);
   }, [keystrokeBuffer, terminated, verifyKeystrokePattern]);
+
+  // KEYSTROKE VERIFICATION - After typing questions
+  useEffect(() => {
+    const prevQ = currentIndex > 0 ? exam.questions[currentIndex - 1] : null;
+
+    // If previous question was typing and we have keystroke data, verify
+    if (prevQ && prevQ.type === "TYPING" && keystrokeBuffer.length >= 20) {
+      verifyKeystrokePattern().then((success) => {
+        if (success) {
+          setKeystrokeBuffer([]);
+        }
+      });
+    }
+  }, [currentIndex, exam.questions, keystrokeBuffer.length, verifyKeystrokePattern]);
 
   // WEBSOCKET CONNECTION
   useEffect(() => {
@@ -175,14 +206,17 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
 
     socket.emit("join", `attempt:${attemptId}`);
 
-    socket.on("cheat:warning", (data: { warningCount: number; message: string }) => {
-      setWarningCount(data.warningCount);
-      setWarningMessage(data.message);
-      setShowWarning(true);
+    socket.on(
+      "cheat:warning",
+      (data: { type: string; warningCount: number; message: string }) => {
+        setWarningCount(data.warningCount);
+        setWarningMessage(`[${data.type.toUpperCase()}] ${data.message}`);
+        setShowWarning(true);
 
-      // Auto-hide warning after 5 seconds
-      setTimeout(() => setShowWarning(false), 5000);
-    });
+        // Auto-hide warning after 5 seconds
+        setTimeout(() => setShowWarning(false), 5000);
+      }
+    );
 
     socket.on("attempt:terminated", (data: { reason: string }) => {
       setTerminated(true);
@@ -236,16 +270,29 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
     >
       {/* WARNING BANNER */}
       {showWarning && (
-        <div className="fixed top-0 left-0 right-0 bg-yellow-500 text-white p-4 z-50 flex items-center justify-between shadow-lg">
-          <div>
-            <strong>
-              Warning {warningCount}/{maxWarnings}:
-            </strong>{" "}
-            {warningMessage}
+        <div className="fixed top-0 left-0 right-0 bg-linear -to-r from-yellow-500 to-orange-500 text-white p-4 z-50 flex items-center justify-between shadow-lg animate-pulse">
+          <div className="flex items-center gap-3">
+            <svg
+              className="w-6 h-6"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div>
+              <strong className="block">
+                Warning {warningCount}/{maxWarnings}
+              </strong>
+              <span className="text-sm">{warningMessage}</span>
+            </div>
           </div>
           <button
             onClick={() => setShowWarning(false)}
-            className="text-white font-bold text-2xl hover:text-gray-200"
+            className="text-white font-bold text-2xl hover:text-gray-200 transition"
           >
             ✕
           </button>
@@ -408,6 +455,39 @@ const ExamStartPage: React.FC<ExamProps> = ({ exam }) => {
             <p className="text-xs text-yellow-700 mt-1">
               Exam will auto-terminate after {maxWarnings} warnings
             </p>
+          </div>
+        )}
+
+        {/* Voice Monitoring Indicator */}
+        {isMonitoring && (
+          <div
+            className="p-4 rounded-2xl shadow mb-6 text-center"
+            style={{
+              backgroundColor:
+                voiceStatus?.speech_probability &&
+                voiceStatus.speech_probability > 0.3
+                  ? "#FEE2E2"
+                  : "#E0F2FE",
+              border: `1px solid ${
+                voiceStatus?.speech_probability &&
+                voiceStatus.speech_probability > 0.3
+                  ? "#FCA5A5"
+                  : "#BAE6FD"
+              }`,
+            }}
+          >
+            <h3 className="font-bold text-gray-800 mb-1">Voice Monitor</h3>
+            <div className="text-sm text-gray-700">
+              {voiceStatus?.speech_probability &&
+              voiceStatus.speech_probability > 0.1 ? (
+                <span className="text-red-600 font-semibold">
+                  Speech Detected (
+                  {(voiceStatus.speech_probability * 100).toFixed(0)}%)
+                </span>
+              ) : (
+                <span className="text-blue-600">Monitoring Active</span>
+              )}
+            </div>
           </div>
         )}
 
