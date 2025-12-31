@@ -23,6 +23,7 @@ export interface StudentUser {
   dob: string;
   gender: string;
   selfieVideo: string;
+  hasTypingProfile?:boolean; 
   createdAt: string | Date;
   updatedAt: string | Date;
   unreadNotificationCount: number;

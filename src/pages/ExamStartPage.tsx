@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { io, Socket } from "socket.io-client";
-import { useCheckFrame, useExamDetailsByAttempt } from "../services/auth";
+import { useCheckFrame, useExamDetailsByAttempt, useSubmitExam } from "../services/auth";
 import { useVoiceMonitoring } from "../services/voice";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
@@ -49,6 +49,7 @@ const ExamStartPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const checkFrame = useCheckFrame();
+  const submitExamMutation = useSubmitExam();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string | number>>({});
@@ -156,10 +157,38 @@ const ExamStartPage: React.FC = () => {
   }, [terminated]);
 
   const handleSubmit = useCallback(() => {
-    console.log("Submitted Answers: ", answers);
-    alert("Exam submitted!");
-    // TODO: Call backend to submit exam
-  }, [answers]);
+    if (!examDetails || !attemptId) {
+      alert("Unable to submit: Missing exam information");
+      return;
+    }
+
+    // Show confirmation
+    const confirmSubmit = window.confirm(
+      "Are you sure you want to submit the exam? This action cannot be undone."
+    );
+
+    if (!confirmSubmit) return;
+
+    // Call API to submit exam
+    submitExamMutation.mutate(
+      {
+        examId: examDetails.exam.id,
+        attemptId: attemptId,
+      },
+      {
+        onSuccess: (data) => {
+          alert(`Exam submitted successfully! Your score: ${data.score}`);
+          // Navigate to results or exams page
+          navigate("/exams");
+        },
+        onError: (error: any) => {
+          const errorMsg = error?.response?.data?.message || "Failed to submit exam. Please try again.";
+          alert(errorMsg);
+          console.error("Submit error:", error);
+        },
+      }
+    );
+  }, [examDetails, attemptId, submitExamMutation, navigate]);
 
   const handleEndExam = () => {
     const confirmEnd = window.confirm(

@@ -10,7 +10,7 @@ interface AuthState {
   dob: string;
   gender: string;
   selfieVideo: string;
-  hasTypingProfile: boolean;
+  hasTypingProfile?: boolean;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

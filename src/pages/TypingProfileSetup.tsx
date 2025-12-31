@@ -301,14 +301,14 @@ const TypingProfileSetup = () => {
               <div className="flex justify-center gap-4">
                 <button
                   onClick={resetTest}
-                  disabled={enrollKeystrokeUser.isPending || submitted}
+                  disabled={enrollKeystrokeUser.isPending}
                   className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-6 rounded-lg disabled:opacity-60"
                 >
                   Retake Test
                 </button>
                 <button
                   onClick={saveProfile}
-                  disabled={enrollKeystrokeUser.isPending || submitted}
+                  disabled={enrollKeystrokeUser.isPending}
                   className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg disabled:opacity-60"
                 >
                   {enrollKeystrokeUser.isPending ? 'Submitting…' : 'Continue to Dashboard'}

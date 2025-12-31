@@ -6,6 +6,7 @@ export const axiosInstance = axios.create({
   baseURL: "http://localhost:3000/api",
   // baseURL: "https://webcams-cruz-involve-winners.trycloudflare.com/api",
   withCredentials: true, //  for sending cookies
+  timeout: 120000,
 });
 
 axiosInstance.interceptors.response.use(
