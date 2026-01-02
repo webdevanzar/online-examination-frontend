@@ -1,12 +1,211 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePublishedExams, type Exam } from "../services/exam";
+import { useExamAttemptStatus } from "../services/auth";
 import {
   getExamStatus,
   canStartExam,
   formatExamDate,
   type ExamStatus,
 } from "../utils/dateUtils";
+
+// ExamCard Component with attempt status checking
+function ExamCard({ exam }: { exam: Exam }) {
+  const navigate = useNavigate();
+  const status = getExamStatus(exam.startTime, exam.endTime);
+  const canStart = canStartExam(exam.startTime, exam.endTime);
+
+  // Fetch attempt status for this exam
+  const { data: attemptStatus, isLoading: statusLoading } = useExamAttemptStatus(exam.id);
+
+  const renderActionButton = () => {
+    // Show loading state while fetching attempt status
+    if (statusLoading) {
+      return (
+        <button
+          disabled
+          className="w-full py-3 rounded-xl mt-2 font-semibold bg-gray-200 text-gray-500 cursor-wait"
+        >
+          Checking status...
+        </button>
+      );
+    }
+
+    // For completed exams (exam ended)
+    if (status === "completed") {
+      // If student submitted the exam
+      if (attemptStatus?.status === "submitted") {
+        return (
+          <button
+            disabled
+            className="w-full py-3 rounded-xl mt-2 font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-not-allowed opacity-75"
+          >
+            ✓ Submitted (Score: {attemptStatus.score}/{attemptStatus.totalMarks})
+          </button>
+        );
+      }
+
+      // If exam was terminated, allow restart
+      if (attemptStatus?.status === "terminated") {
+        return (
+          <button
+            onClick={() => navigate("/instructions", { state: { exam } })}
+            className="w-full py-3 rounded-xl mt-2 font-semibold bg-orange-600 text-white hover:bg-orange-700 transition-all"
+          >
+            Restart Exam (Previous: Terminated)
+          </button>
+        );
+      }
+
+      // Exam ended and not attempted
+      return (
+        <button
+          disabled
+          className="w-full py-3 rounded-xl mt-2 font-semibold bg-gray-300 text-gray-500 cursor-not-allowed"
+        >
+          Exam Ended
+        </button>
+      );
+    }
+
+    // For upcoming exams
+    if (status === "upcoming") {
+      return (
+        <button
+          disabled
+          className="w-full py-3 rounded-xl mt-2 font-semibold bg-gray-300 text-gray-500 cursor-not-allowed"
+        >
+          Not Yet Started
+        </button>
+      );
+    }
+
+    // For ongoing exams
+    if (status === "ongoing") {
+      // If already submitted
+      if (attemptStatus?.status === "submitted") {
+        return (
+          <button
+            disabled
+            className="w-full py-3 rounded-xl mt-2 font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-not-allowed opacity-75"
+          >
+            ✓ Submitted (Score: {attemptStatus.score}/{attemptStatus.totalMarks})
+          </button>
+        );
+      }
+
+      // If exam was terminated, allow restart
+      if (attemptStatus?.status === "terminated") {
+        return (
+          <button
+            onClick={() => navigate("/instructions", { state: { exam } })}
+            className="w-full py-3 rounded-xl mt-2 font-semibold bg-orange-600 text-white hover:bg-orange-700 transition-all"
+          >
+            Restart Exam (Previous: Terminated)
+          </button>
+        );
+      }
+
+      // If exam is in progress, allow resume
+      if (attemptStatus?.status === "in_progress") {
+        return (
+          <button
+            onClick={() => navigate(`/exam/${attemptStatus.attemptId}/start`, { state: { exam } })}
+            className="w-full py-3 rounded-xl mt-2 font-semibold bg-yellow-600 text-white hover:bg-yellow-700 transition-all"
+          >
+            Resume Exam
+          </button>
+        );
+      }
+
+      // Not attempted yet and can start
+      if (canStart) {
+        return (
+          <button
+            onClick={() => navigate("/instructions", { state: { exam } })}
+            className="w-full py-3 rounded-xl mt-2 font-semibold bg-green-600 text-white hover:bg-green-700 transition-all"
+          >
+            Start Exam
+          </button>
+        );
+      }
+
+      // Exam ended (shouldn't happen for ongoing status, but handle it)
+      return (
+        <button
+          disabled
+          className="w-full py-3 rounded-xl mt-2 font-semibold bg-gray-300 text-gray-500 cursor-not-allowed"
+        >
+          Exam Ended
+        </button>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <div
+      key={exam.id}
+      className="bg-white rounded-3xl border shadow-lg hover:shadow-2xl transition-all p-8 hover:-translate-y-2"
+    >
+      {/* Status Badge */}
+      <div className="flex justify-between items-center mb-4">
+        <span
+          className={`px-4 py-1 text-sm rounded-full font-medium ${
+            status === "ongoing"
+              ? "bg-green-100 text-green-700"
+              : status === "upcoming"
+              ? "bg-blue-100 text-blue-700"
+              : "bg-gray-100 text-gray-700"
+          }`}
+        >
+          {status === "ongoing" && "🟢 Active Now"}
+          {status === "upcoming" && "🔵 Coming Soon"}
+          {status === "completed" && "⚪ Completed"}
+        </span>
+
+        <span className="text-gray-400 text-sm font-medium">
+          ID: {exam.id.substring(0, 8)}
+        </span>
+      </div>
+
+      {/* Exam Title */}
+      <h3 className="text-2xl font-bold text-gray-800 mb-3">
+        {exam.title}
+      </h3>
+
+      {/* Description (truncated) */}
+      {exam.description && (
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+          {exam.description}
+        </p>
+      )}
+
+      {/* Exam Info */}
+      <div className="text-gray-600 space-y-2 mb-6">
+        <p className="flex items-center gap-2">
+          📅 <span>Start: {formatExamDate(exam.startTime)}</span>
+        </p>
+        <p className="flex items-center gap-2">
+          ⏳ <span>Duration: {exam.duration} mins</span>
+        </p>
+        <p className="flex items-center gap-2">
+          📚 <span>Subject: {exam.subject}</span>
+        </p>
+        <p className="flex items-center gap-2">
+          📝 <span>Questions: {exam.questionCount}</span>
+        </p>
+        <p className="flex items-center gap-2">
+          ⭐ <span>Total Marks: {exam.totalMarks}</span>
+        </p>
+      </div>
+
+      {/* Action Button */}
+      {renderActionButton()}
+    </div>
+  );
+}
 
 export default function Exams() {
   const navigate = useNavigate();
@@ -143,89 +342,9 @@ export default function Exams() {
 
       {/* Exams Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 z-10 relative">
-        {displayedExams.map((exam) => {
-          const status = getExamStatus(exam.startTime, exam.endTime);
-          const canStart = canStartExam(exam.startTime, exam.endTime);
-
-          return (
-            <div
-              key={exam.id}
-              className="bg-white rounded-3xl border shadow-lg hover:shadow-2xl transition-all p-8 hover:-translate-y-2"
-            >
-              {/* Status Badge */}
-              <div className="flex justify-between items-center mb-4">
-                <span
-                  className={`px-4 py-1 text-sm rounded-full font-medium ${
-                    status === "ongoing"
-                      ? "bg-green-100 text-green-700"
-                      : status === "upcoming"
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-gray-100 text-gray-700"
-                  }`}
-                >
-                  {status === "ongoing" && "🟢 Active Now"}
-                  {status === "upcoming" && "🔵 Coming Soon"}
-                  {status === "completed" && "⚪ Completed"}
-                </span>
-
-                <span className="text-gray-400 text-sm font-medium">
-                  ID: {exam.id.substring(0, 8)}
-                </span>
-              </div>
-
-              {/* Exam Title */}
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">
-                {exam.title}
-              </h3>
-
-              {/* Description (truncated) */}
-              {exam.description && (
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                  {exam.description}
-                </p>
-              )}
-
-              {/* Exam Info */}
-              <div className="text-gray-600 space-y-2 mb-6">
-                <p className="flex items-center gap-2">
-                  📅 <span>Start: {formatExamDate(exam.startTime)}</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  ⏳ <span>Duration: {exam.duration} mins</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  📚 <span>Subject: {exam.subject}</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  📝 <span>Questions: {exam.questionCount}</span>
-                </p>
-                <p className="flex items-center gap-2">
-                  ⭐ <span>Total Marks: {exam.totalMarks}</span>
-                </p>
-              </div>
-
-              {/* Action Button */}
-              <button
-                onClick={() => {
-                  if (canStart) {
-                    navigate("/instructions", { state: { exam } });
-                  }
-                }}
-                disabled={!canStart}
-                className={`w-full py-3 rounded-xl mt-2 font-semibold transition-all ${
-                  canStart
-                    ? "bg-green-600 text-white hover:bg-green-700"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
-              >
-                {status === "ongoing" && canStart && "Start Exam"}
-                {status === "upcoming" && "Not Yet Started"}
-                {status === "completed" && "Exam Ended"}
-                {status === "ongoing" && !canStart && "Exam Ended"}
-              </button>
-            </div>
-          );
-        })}
+        {displayedExams.map((exam) => (
+          <ExamCard key={exam.id} exam={exam} />
+        ))}
       </div>
     </div>
   );

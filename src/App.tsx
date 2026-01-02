@@ -49,7 +49,7 @@ function App() {
             <Route path="/system-check" element={<SystemCheckPage />} />
             <Route path="/instructions" element={<InstructionPage />} />
             <Route
-              path="/exam/:attemptId/enroll"
+              path="/exam/enroll/:examId"
               element={<ExamEnrollmentPage />}
             />
             <Route

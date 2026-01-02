@@ -1,39 +1,32 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useEnrollFace, useVerifyFace, useEnrollmentStatus } from "../services/biometric";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useVerifyFaceForExam } from "../services/biometric";
+import { useStartExam } from "../services/auth";
+import { toast } from "sonner";
+import type { Exam } from "../services/exam";
 
 const ExamEnrollmentPage: React.FC = () => {
-  const { attemptId } = useParams<{ attemptId: string }>();
+  const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const exam = (location.state as { exam?: Exam } | null)?.exam;
 
-  // Steps: 1=FaceEnroll, 2=FaceVerify, 3=Complete (keystroke removed)
+  // Steps: 1=FaceVerify, 2=Starting Exam
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Face enrollment
-  const [faceEnrolled, setFaceEnrolled] = useState(false);
+  // Face verification
   const [faceVerified, setFaceVerified] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [verifyAttempts, setVerifyAttempts] = useState(0);
 
-  // Enrollment status via service hook
-  const { data: enrollStatus } = useEnrollmentStatus(attemptId || "", !!attemptId);
+  // API hooks - NEW FLOW: verify face FIRST, then create attempt
+  const verifyFaceForExamMutation = useVerifyFaceForExam();
+  const startExamMutation = useStartExam();
 
-  useEffect(() => {
-    if (!enrollStatus) return;
-    if (enrollStatus.canStartExam) {
-      navigate(`/exam/${attemptId}/start`);
-    } else if (enrollStatus.faceEnrolled) {
-      setFaceEnrolled(true);
-      setCurrentStep(2);
-    }
-    // Remove keystrokeEnrolled check
-  }, [enrollStatus, attemptId, navigate]);
-
-  const enrollFaceMutation = useEnrollFace();
   const getErrMsg = (e: unknown, fallback: string) => {
     if (e && typeof e === "object" && "response" in e) {
       const resp = (e as { response?: { data?: { message?: string } } }).response;
@@ -42,25 +35,7 @@ const ExamEnrollmentPage: React.FC = () => {
     }
     return fallback;
   };
-  const enrollFace = () => {
-    setLoading(true);
-    setError("");
-    setSuccess("");
-    if (!attemptId) return;
-    enrollFaceMutation.mutate(attemptId, {
-      onSuccess: (data) => {
-        setFaceEnrolled(true);
-        setSuccess(data.message);
-        setTimeout(() => setCurrentStep(2), 2000);
-      },
-      onError: (err: unknown) => {
-        setError(getErrMsg(err, "Face enrollment failed"));
-      },
-      onSettled: () => setLoading(false),
-    });
-  };
 
-  const verifyFaceMutation = useVerifyFace();
   const verifyFace = async () => {
     setLoading(true);
     setError("");
@@ -73,17 +48,30 @@ const ExamEnrollmentPage: React.FC = () => {
         setLoading(false);
         return;
       }
-      if (!attemptId) return;
-      const data = await verifyFaceMutation.mutateAsync({ attemptId, frame });
+      if (!examId) return;
+
+      // Step 1: Verify face (NO exam attempt created yet)
+      const data = await verifyFaceForExamMutation.mutateAsync({ examId, frame });
+
       if (data.verified) {
         setFaceVerified(true);
         setSuccess(
-          `Face verified! Confidence: ${(data.confidence * 100).toFixed(
-            1
-          )}%`
+          `Face verified! Confidence: ${(data.confidence * 100).toFixed(1)}% | ` +
+          `Distance: ${data.distance.toFixed(3)} | Video samples: ${data.video_samples}`
         );
         stopCamera();
-        setTimeout(() => setCurrentStep(3), 2000); // Move to completion
+
+        // Step 2: NOW create exam attempt
+        toast.success("Face verified! Starting exam...");
+        setCurrentStep(2);
+
+        // Call startExam API to create attempt
+        const examResponse = await startExamMutation.mutateAsync(examId);
+
+        // Step 3: Navigate to exam with attemptId
+        toast.success("Exam started successfully!");
+        navigate(`/exam/${examResponse.attemptId}/start`, { state: { exam } });
+
       } else {
         setVerifyAttempts((prev) => prev + 1);
         setError(
@@ -92,7 +80,8 @@ const ExamEnrollmentPage: React.FC = () => {
       }
     } catch (err: unknown) {
       console.error("Face verification failed", err);
-      setError(getErrMsg(err, "Face verification failed"));
+      setError(getErrMsg(err, "Face verification or exam start failed"));
+      stopCamera();
     } finally {
       setLoading(false);
     }
@@ -135,12 +124,8 @@ const ExamEnrollmentPage: React.FC = () => {
   };
 
 
-  const proceedToExam = () => {
-    navigate(`/exam/${attemptId}/start`);
-  };
-
   useEffect(() => {
-    if (currentStep === 2 && !stream) {
+    if (currentStep === 1 && !stream) {
       startCamera();
     }
 
@@ -155,15 +140,15 @@ const ExamEnrollmentPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full bg-white rounded-lg shadow-lg p-8">
         <h1 className="text-3xl font-bold text-center mb-2">
-          Biometric Enrollment
+          Face Verification
         </h1>
         <p className="text-center text-gray-600 mb-6">
-          Complete these steps to verify your identity before starting the exam
+          Verify your identity by comparing your live camera feed with your registration video
         </p>
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-between mb-8">
-          {[1, 2, 3].map((step) => (
+        <div className="flex items-center justify-center mb-8">
+          {[1, 2].map((step) => (
             <div key={step} className="flex items-center">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
@@ -174,9 +159,9 @@ const ExamEnrollmentPage: React.FC = () => {
               >
                 {step}
               </div>
-              {step < 3 && (
+              {step < 2 && (
                 <div
-                  className={`w-16 h-1 mx-2 ${
+                  className={`w-32 h-1 mx-2 ${
                     currentStep > step ? "bg-blue-600" : "bg-gray-300"
                   }`}
                 />
@@ -197,34 +182,15 @@ const ExamEnrollmentPage: React.FC = () => {
           </div>
         )}
 
-        {/* Step 1: Face Enrollment */}
+        {/* Step 1: Face Verification */}
         {currentStep === 1 && (
           <div className="text-center">
             <h2 className="text-2xl font-semibold mb-4">
-              Step 1: Face Enrollment
-            </h2>
-            <p className="text-gray-700 mb-6">
-              We will use your registration video to create a face profile. Click
-              the button below to start enrollment.
-            </p>
-            <button
-              onClick={enrollFace}
-              disabled={loading || faceEnrolled}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded disabled:bg-gray-400"
-            >
-              {loading ? "Enrolling..." : "Enroll Face"}
-            </button>
-          </div>
-        )}
-
-        {/* Step 2: Face Verification */}
-        {currentStep === 2 && (
-          <div className="text-center">
-            <h2 className="text-2xl font-semibold mb-4">
-              Step 2: Face Verification
+              Step 1: Face Verification
             </h2>
             <p className="text-gray-700 mb-4">
               Look at the camera and click "Verify Face" to confirm your identity.
+              We will compare your live feed with your registration video.
             </p>
 
             <div className="mb-6">
@@ -253,21 +219,16 @@ const ExamEnrollmentPage: React.FC = () => {
           </div>
         )}
 
-        {/* Step 3: Complete */}
-        {currentStep === 3 && (
+        {/* Step 2: Starting Exam */}
+        {currentStep === 2 && (
           <div className="text-center">
-            <h2 className="text-2xl font-semibold mb-4 text-green-600">
-              ✓ Enrollment Complete!
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <h2 className="text-2xl font-semibold mb-4 text-blue-600">
+              Starting Exam...
             </h2>
-            <p className="text-gray-700 mb-6">
-              Your face has been successfully verified. You can now start the exam.
+            <p className="text-gray-700">
+              Face verified! Creating your exam session. Please wait...
             </p>
-            <button
-              onClick={proceedToExam}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded"
-            >
-              Start Exam
-            </button>
           </div>
         )}
       </div>

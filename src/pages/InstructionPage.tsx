@@ -1,6 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { useStartExam } from "../services/auth";
 import type { Exam } from "../services/exam";
 
 const colors = {
@@ -15,7 +14,6 @@ const colors = {
 const InstructionPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const startExam = useStartExam();
 
   const exam = (location.state as { exam?: Exam } | null)?.exam;
 
@@ -27,6 +25,37 @@ const InstructionPage = () => {
     "Submit before time ends.",
   ];
 
+  // Parse API instructions if available and combine with fallback
+  const getInstructions = () => {
+    const apiInstructions: string[] = [];
+
+    if (exam?.instructions) {
+      try {
+        const parsed = JSON.parse(exam.instructions);
+        if (Array.isArray(parsed)) {
+          apiInstructions.push(...parsed);
+        }
+      } catch (err) {
+        console.error("Failed to parse exam instructions:", err);
+      }
+    }
+
+    // Combine API instructions first, then fallback instructions
+    const allInstructions = [...apiInstructions, ...fallbackInstructions];
+
+    // Deduplicate instructions (case-insensitive)
+    const uniqueInstructions = allInstructions.filter(
+      (instruction, index, self) =>
+        self.findIndex(
+          (i) => i.toLowerCase().trim() === instruction.toLowerCase().trim()
+        ) === index
+    );
+
+    return uniqueInstructions;
+  };
+
+  const instructions = getInstructions();
+
   const canStart = exam ? new Date() >= new Date(exam.startTime) : false;
 
   const handleStart = () => {
@@ -36,15 +65,9 @@ const InstructionPage = () => {
       return;
     }
 
-    startExam.mutate(exam.id, {
-      onSuccess: (data) => {
-        toast.success("Exam started");
-        navigate(`/exam/${data.attemptId}/enroll`, { state: { exam } });
-      },
-      onError: () => {
-        toast.error("Failed to start exam. Please try again.");
-      },
-    });
+    // Navigate directly to enrollment page (face verification happens FIRST)
+    // Exam attempt will be created AFTER successful face verification
+    navigate(`/exam/enroll/${exam.id}`, { state: { exam } });
   };
 
   if (!exam) {
@@ -150,7 +173,7 @@ const InstructionPage = () => {
           </h2>
 
           <ul className="space-y-3" style={{ color: colors.softText }}>
-            {fallbackInstructions.map((ins, i) => (
+            {instructions.map((ins, i) => (
               <li key={i} className="text-lg">• {ins}</li>
             ))}
           </ul>
@@ -190,7 +213,7 @@ const InstructionPage = () => {
               cursor: canStart ? "pointer" : "not-allowed",
             }}
           >
-            {startExam.isPending ? "Starting..." : canStart ? "Start Exam" : "Exam Not Started"}
+            {canStart ? "Start Exam" : "Exam Not Started"}
           </button>
         </div>
       </div>

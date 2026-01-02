@@ -11,6 +11,14 @@ export type EnrollmentStatus = {
 
 export type EnrollFaceResponse = { success: true; message: string };
 export type VerifyFaceResponse = { verified: boolean; confidence: number; message: string };
+export type VerifyWithVideoResponse = {
+  verified: boolean;
+  confidence: number;
+  message: string;
+  distance: number;
+  threshold: number;
+  video_samples: number;
+};
 
 export type KeystrokeEvent = {
   key: string;
@@ -44,6 +52,17 @@ const verifyFaceApi = async (vars: { attemptId: string; frame: string }) => {
   return res.data as VerifyFaceResponse;
 };
 
+const verifyWithVideoApi = async (vars: { attemptId: string; frame: string }) => {
+  const res = await axiosInstance.post(`/biometric/attempt/${vars.attemptId}/verify-with-video`, { frame: vars.frame });
+  return res.data as VerifyWithVideoResponse;
+};
+
+// NEW: Verify face for exam before creating attempt
+const verifyFaceForExamApi = async (vars: { examId: string; frame: string }) => {
+  const res = await axiosInstance.post(`/biometric/user/verify-face-for-exam`, vars);
+  return res.data as VerifyWithVideoResponse;
+};
+
 // Attempt-scoped keystroke APIs were removed on backend; use user-centric variants below
 
 // User-centric keystroke APIs (no attemptId required)
@@ -74,6 +93,15 @@ export const useEnrollFace = () => {
 
 export const useVerifyFace = () => {
   return useMutation<VerifyFaceResponse, unknown, { attemptId: string; frame: string }>({ mutationFn: verifyFaceApi });
+};
+
+export const useVerifyWithVideo = () => {
+  return useMutation<VerifyWithVideoResponse, unknown, { attemptId: string; frame: string }>({ mutationFn: verifyWithVideoApi });
+};
+
+// NEW: Verify face for exam before creating attempt
+export const useVerifyFaceForExam = () => {
+  return useMutation<VerifyWithVideoResponse, unknown, { examId: string; frame: string }>({ mutationFn: verifyFaceForExamApi });
 };
 
 // Removed attempt-scoped keystroke hooks; use user-centric variants instead

@@ -594,6 +594,33 @@ export const useStartExam = () => {
   });
 };
 
+// NEW: Get exam attempt status
+type ExamAttemptStatus = {
+  status: "not_attempted" | "submitted" | "terminated" | "in_progress" | "unknown";
+  canStart: boolean;
+  score?: number;
+  submittedAt?: string;
+  totalMarks?: number;
+  terminationReason?: string;
+  warningCount?: number;
+  attemptId?: string;
+  startedAt?: string;
+  message?: string;
+};
+
+const getExamAttemptStatusApi = async (examId: string) => {
+  const res = await axiosInstance.get(`/student/exams/${examId}/attempt-status`);
+  return res.data as ExamAttemptStatus;
+};
+
+export const useExamAttemptStatus = (examId: string, enabled = true) => {
+  return useQuery<ExamAttemptStatus>({
+    queryKey: ["exam-attempt-status", examId],
+    queryFn: () => getExamAttemptStatusApi(examId),
+    enabled: !!examId && enabled,
+  });
+};
+
 type SaveAnswerPayload = {
   examId: string;
   attemptId: string;

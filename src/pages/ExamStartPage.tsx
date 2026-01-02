@@ -2,8 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { io, Socket } from "socket.io-client";
-import { useCheckFrame, useExamDetailsByAttempt, useSubmitExam } from "../services/auth";
-import { useVoiceMonitoring } from "../services/voice";
+import {
+  useCheckFrame,
+  useExamDetailsByAttempt,
+  useSubmitExam,
+} from "../services/auth";
+import { toast } from "sonner";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
@@ -41,10 +45,12 @@ const ExamStartPage: React.FC = () => {
   const navigate = useNavigate();
 
   // Fetch exam details using attemptId
-  const { data: examDetails, isLoading, isError, error } = useExamDetailsByAttempt(
-    attemptId || "",
-    !!attemptId
-  );
+  const {
+    data: examDetails,
+    isLoading,
+    isError,
+    error,
+  } = useExamDetailsByAttempt(attemptId || "", !!attemptId);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -67,24 +73,33 @@ const ExamStartPage: React.FC = () => {
   const [, setStream] = useState<MediaStream | null>(null);
   const didAutoSubmitRef = useRef(false);
 
-  // Voice monitoring - checks every 2 minutes
-  const { voiceStatus, isMonitoring } = useVoiceMonitoring(
-    attemptId,
-    !terminated && !!attemptId,
-    120000 // Check every 2 minutes (120000ms)
-  );
+  // Voice monitoring - NOW HANDLED VIA HTTP BY VOICE ML WORKER
+  // Warnings are received via Socket.IO "cheat:warning" events
+  // const { voiceStatus, isMonitoring } = useVoiceMonitoring(
+  //   attemptId,
+  //   !terminated && !!attemptId,
+  //   120000 // Check every 2 minutes (120000ms)
+  // );
 
-  const timeLeft = Math.max(0, Math.floor(((endTimeMs ?? nowMs) - nowMs) / 1000));
+  const timeLeft = Math.max(
+    0,
+    Math.floor(((endTimeMs ?? nowMs) - nowMs) / 1000)
+  );
 
   // Block browser back button and shortcuts during exam
   useEffect(() => {
     if (terminated || !attemptId) return;
 
+    // Clear route history to prevent back navigation
+    window.history.replaceState(null, "", window.location.href);
+
     // Block back button
     const handlePopState = (e: PopStateEvent) => {
       e.preventDefault();
       window.history.pushState(null, "", window.location.href);
-      alert("Navigation blocked during active exam. Use 'End Exam' button to exit.");
+      alert(
+        "Navigation blocked during active exam. Use 'End Exam' button to exit."
+      );
     };
 
     // Push state to enable popstate blocking
@@ -102,17 +117,17 @@ const ExamStartPage: React.FC = () => {
     // Block keyboard shortcuts (Ctrl+W, Alt+F4, F5, etc.)
     const handleKeyDown = (e: KeyboardEvent) => {
       // Block Ctrl+W (close tab)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
+      if ((e.ctrlKey || e.metaKey) && e.key === "w") {
         e.preventDefault();
         alert("Cannot close tab during exam.");
       }
       // Block Alt+F4 (close window) - limited browser support
-      if (e.altKey && e.key === 'F4') {
+      if (e.altKey && e.key === "F4") {
         e.preventDefault();
         alert("Cannot close window during exam.");
       }
       // Block F5 (refresh)
-      if (e.key === 'F5') {
+      if (e.key === "F5") {
         e.preventDefault();
         alert("Cannot refresh during exam.");
       }
@@ -182,7 +197,9 @@ const ExamStartPage: React.FC = () => {
           navigate("/exams");
         },
         onError: (error: any) => {
-          const errorMsg = error?.response?.data?.message || "Failed to submit exam. Please try again.";
+          const errorMsg =
+            error?.response?.data?.message ||
+            "Failed to submit exam. Please try again.";
           alert(errorMsg);
           console.error("Submit error:", error);
         },
@@ -242,8 +259,8 @@ const ExamStartPage: React.FC = () => {
     if (!examDetails) return;
 
     const timer = setInterval(() => {
-      setEndTimeMs((prev) =>
-        prev ?? Date.now() + examDetails.exam.duration * 60 * 1000
+      setEndTimeMs(
+        (prev) => prev ?? Date.now() + examDetails.exam.duration * 60 * 1000
       );
       setNowMs(Date.now());
     }, 1000);
@@ -278,7 +295,9 @@ const ExamStartPage: React.FC = () => {
         if (videoRef.current) videoRef.current.srcObject = mediaStream;
       } catch (err) {
         console.error("Camera access error:", err);
-        alert("Camera access is required for this exam. Please enable camera access.");
+        alert(
+          "Camera access is required for this exam. Please enable camera access."
+        );
       }
     };
 
@@ -336,7 +355,12 @@ const ExamStartPage: React.FC = () => {
         }
       });
     }
-  }, [currentIndex, examDetails, keystrokeBuffer.length, verifyKeystrokePattern]);
+  }, [
+    currentIndex,
+    examDetails,
+    keystrokeBuffer.length,
+    verifyKeystrokePattern,
+  ]);
 
   // WEBSOCKET CONNECTION
   useEffect(() => {
@@ -346,40 +370,271 @@ const ExamStartPage: React.FC = () => {
     socketRef.current = socket;
 
     socket.emit("join", `attempt:${attemptId}`);
+    console.log(
+      `[EXAM] Joined room: attempt:${attemptId}, socket ID: ${socket.id}`
+    );
 
     socket.on(
       "cheat:warning",
       (data: { type: string; warningCount: number; message: string }) => {
+        console.log(`[CHEAT:WARNING] Received:`, data);
         setWarningCount(data.warningCount);
 
         // Create user-friendly message based on fraud type
         let userMessage = data.message;
+        let toastIcon = "⚠️";
+        let toastStyle = {};
 
-        // Face detection warnings
-        if (data.message.includes("Looking away")) {
+        // Voice detection warnings - ENHANCED with colorful gradient
+        if (data.type === "voice" || data.message.toLowerCase().includes("voice") || data.message.toLowerCase().includes("speech")) {
+          userMessage = "🎤 Voice detected - Please remain silent during the exam";
+          toastIcon = "🎤";
+          toastStyle = {
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            color: "#fff",
+            fontSize: "16px",
+            fontWeight: "600",
+            padding: "16px 24px",
+            borderRadius: "12px",
+            boxShadow: "0 4px 20px rgba(118,75,162,0.4)",
+          };
+          toast.error(userMessage, {
+            duration: 5000,
+            position: "top-center",
+            style: toastStyle,
+            icon: toastIcon,
+          });
+        }
+        // Face detection warnings - with gradient toasts
+        else if (data.message.includes("Looking away")) {
           userMessage = "⚠️ Please keep your eyes on the screen";
+          toastStyle = {
+            background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+            color: "#fff",
+            fontSize: "15px",
+            fontWeight: "600",
+            padding: "14px 20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 15px rgba(245,87,108,0.3)",
+          };
+          toast.warning(userMessage, {
+            duration: 4000,
+            position: "top-center",
+            style: toastStyle,
+          });
         } else if (data.message.includes("Face not centered")) {
-          userMessage = "⚠️ Please position your face in the center of the camera";
+          userMessage =
+            "⚠️ Please position your face in the center of the camera";
+          toastStyle = {
+            background: "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
+            color: "#333",
+            fontSize: "15px",
+            fontWeight: "600",
+            padding: "14px 20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 15px rgba(252,182,159,0.3)",
+          };
+          toast.warning(userMessage, {
+            duration: 4000,
+            position: "top-center",
+            style: toastStyle,
+          });
         } else if (data.message.includes("Face too close")) {
           userMessage = "⚠️ Please move back from the camera";
+          toastStyle = {
+            background: "linear-gradient(135deg, #fdcbf1 0%, #e6dee9 100%)",
+            color: "#333",
+            fontSize: "15px",
+            fontWeight: "600",
+            padding: "14px 20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 15px rgba(253,203,241,0.3)",
+          };
+          toast.warning(userMessage, {
+            duration: 4000,
+            position: "top-center",
+            style: toastStyle,
+          });
         } else if (data.message.includes("Face too far")) {
           userMessage = "⚠️ Please move closer to the camera";
+          toastStyle = {
+            background: "linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)",
+            color: "#333",
+            fontSize: "15px",
+            fontWeight: "600",
+            padding: "14px 20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 15px rgba(161,196,253,0.3)",
+          };
+          toast.warning(userMessage, {
+            duration: 4000,
+            position: "top-center",
+            style: toastStyle,
+          });
         } else if (data.message.includes("Multiple faces")) {
           userMessage = "⚠️ Multiple faces detected - Ensure you are alone";
+          toastIcon = "👥";
+          toastStyle = {
+            background: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+            color: "#fff",
+            fontSize: "16px",
+            fontWeight: "700",
+            padding: "16px 24px",
+            borderRadius: "12px",
+            boxShadow: "0 6px 25px rgba(250,112,154,0.4)",
+          };
+          toast.error(userMessage, {
+            duration: 6000,
+            position: "top-center",
+            style: toastStyle,
+            icon: toastIcon,
+          });
         } else if (data.message.includes("No face")) {
           userMessage = "⚠️ Your face is not visible - Please stay in view";
+          toastIcon = "👤";
+          toastStyle = {
+            background: "linear-gradient(135deg, #ff6a00 0%, #ee0979 100%)",
+            color: "#fff",
+            fontSize: "16px",
+            fontWeight: "700",
+            padding: "16px 24px",
+            borderRadius: "12px",
+            boxShadow: "0 6px 25px rgba(238,9,121,0.4)",
+          };
+          toast.error(userMessage, {
+            duration: 6000,
+            position: "top-center",
+            style: toastStyle,
+            icon: toastIcon,
+          });
         } else if (data.message.includes("Rapid movement")) {
           userMessage = "⚠️ Suspicious rapid movement detected";
+          toastStyle = {
+            background: "linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%)",
+            color: "#333",
+            fontSize: "15px",
+            fontWeight: "600",
+            padding: "14px 20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 15px rgba(253,203,110,0.3)",
+          };
+          toast.warning(userMessage, {
+            duration: 4000,
+            position: "top-center",
+            style: toastStyle,
+          });
         } else if (data.message.includes("frozen screen")) {
           userMessage = "⚠️ Possible screen fraud detected";
+          toastIcon = "🖥️";
+          toastStyle = {
+            background: "linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)",
+            color: "#fff",
+            fontSize: "16px",
+            fontWeight: "700",
+            padding: "16px 24px",
+            borderRadius: "12px",
+            boxShadow: "0 6px 25px rgba(255,154,158,0.4)",
+          };
+          toast.error(userMessage, {
+            duration: 6000,
+            position: "top-center",
+            style: toastStyle,
+            icon: toastIcon,
+          });
         } else if (data.message.includes("brightness change")) {
           userMessage = "⚠️ Sudden screen change detected";
-        } else if (data.message.includes("phone") || data.message.includes("cell phone")) {
+          toastStyle = {
+            background: "linear-gradient(135deg, #fad0c4 0%, #ffd1ff 100%)",
+            color: "#333",
+            fontSize: "15px",
+            fontWeight: "600",
+            padding: "14px 20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 15px rgba(250,208,196,0.3)",
+          };
+          toast.warning(userMessage, {
+            duration: 4000,
+            position: "top-center",
+            style: toastStyle,
+          });
+        }
+        // Object detection warnings - with colorful gradients
+        else if (
+          data.message.includes("phone") ||
+          data.message.includes("cell phone")
+        ) {
           userMessage = "⚠️ Mobile phone detected - Please remove it";
+          toastIcon = "📱";
+          toastStyle = {
+            background: "linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%)",
+            color: "#fff",
+            fontSize: "16px",
+            fontWeight: "700",
+            padding: "16px 24px",
+            borderRadius: "12px",
+            boxShadow: "0 6px 25px rgba(252,74,26,0.4)",
+          };
+          toast.error(userMessage, {
+            duration: 6000,
+            position: "top-center",
+            style: toastStyle,
+            icon: toastIcon,
+          });
         } else if (data.message.includes("book")) {
           userMessage = "⚠️ Book detected - Please remove study materials";
-        } else if (data.message.includes("laptop") || data.message.includes("computer")) {
-          userMessage = "⚠️ Additional device detected - Only one device allowed";
+          toastIcon = "📚";
+          toastStyle = {
+            background: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)",
+            color: "#333",
+            fontSize: "16px",
+            fontWeight: "700",
+            padding: "16px 24px",
+            borderRadius: "12px",
+            boxShadow: "0 6px 25px rgba(247,151,30,0.4)",
+          };
+          toast.error(userMessage, {
+            duration: 6000,
+            position: "top-center",
+            style: toastStyle,
+            icon: toastIcon,
+          });
+        } else if (
+          data.message.includes("laptop") ||
+          data.message.includes("computer")
+        ) {
+          userMessage =
+            "⚠️ Additional device detected - Only one device allowed";
+          toastIcon = "💻";
+          toastStyle = {
+            background: "linear-gradient(135deg, #ff512f 0%, #dd2476 100%)",
+            color: "#fff",
+            fontSize: "16px",
+            fontWeight: "700",
+            padding: "16px 24px",
+            borderRadius: "12px",
+            boxShadow: "0 6px 25px rgba(221,36,118,0.4)",
+          };
+          toast.error(userMessage, {
+            duration: 6000,
+            position: "top-center",
+            style: toastStyle,
+            icon: toastIcon,
+          });
+        } else {
+          // Generic warning for other fraud types
+          toast.warning(userMessage, {
+            duration: 5000,
+            position: "top-center",
+            style: {
+              background: "linear-gradient(135deg, #f5af19 0%, #f12711 100%)",
+              color: "#fff",
+              fontSize: "15px",
+              fontWeight: "600",
+              padding: "14px 20px",
+              borderRadius: "10px",
+              boxShadow: "0 4px 15px rgba(241,39,17,0.3)",
+            },
+          });
         }
 
         setWarningMessage(userMessage);
@@ -392,8 +647,20 @@ const ExamStartPage: React.FC = () => {
 
     socket.on("attempt:terminated", (data: { reason: string }) => {
       setTerminated(true);
-      alert(`Exam terminated: ${data.reason}`);
-      navigate("/exams");
+      toast.error(`Exam Terminated: ${data.reason}`, {
+        duration: 10000,
+        position: "top-center",
+        style: {
+          background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+          color: "#fff",
+          fontSize: "18px",
+          fontWeight: "700",
+          padding: "20px 30px",
+          borderRadius: "16px",
+          boxShadow: "0 6px 30px rgba(245,87,108,0.4)",
+        },
+        icon: "🚫",
+      });
     });
 
     return () => {
@@ -482,11 +749,7 @@ const ExamStartPage: React.FC = () => {
       {showWarning && (
         <div className="fixed top-0 left-0 right-0 bg-linear -to-r from-yellow-500 to-orange-500 text-white p-4 z-50 flex items-center justify-between shadow-lg animate-pulse">
           <div className="flex items-center gap-3">
-            <svg
-              className="w-6 h-6"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fillRule="evenodd"
                 d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
@@ -608,9 +871,7 @@ const ExamStartPage: React.FC = () => {
 
             <button
               onClick={() =>
-                setCurrentIndex((i) =>
-                  Math.min(i + 1, questions.length - 1)
-                )
+                setCurrentIndex((i) => Math.min(i + 1, questions.length - 1))
               }
               className="px-5 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
               style={{ backgroundColor: colors.green }}
@@ -678,8 +939,9 @@ const ExamStartPage: React.FC = () => {
           </div>
         )}
 
-        {/* Voice Monitoring Indicator */}
-        {isMonitoring && (
+        {/* Voice Monitoring Indicator - REMOVED */}
+        {/* Voice warnings now shown via Socket.IO cheat:warning events */}
+        {/* {isMonitoring && (
           <div
             className="p-4 rounded-2xl shadow mb-6 text-center"
             style={{
@@ -709,7 +971,7 @@ const ExamStartPage: React.FC = () => {
               )}
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Question Palette */}
         <div
@@ -754,10 +1016,7 @@ const ExamStartPage: React.FC = () => {
           style={{ backgroundColor: "white" }}
         >
           <div className="flex items-center justify-between mb-3">
-            <h2
-              className="text-xl font-bold"
-              style={{ color: colors.green }}
-            >
+            <h2 className="text-xl font-bold" style={{ color: colors.green }}>
               Camera Feed
             </h2>
             {!terminated && (
