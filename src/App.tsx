@@ -46,36 +46,30 @@ function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/about" element={<About />} />
             <Route path="/countdown" element={<CountdownPage />} />
-            <Route path="/system-check" element={<SystemCheckPage />} />
-            <Route path="/instructions" element={<InstructionPage />} />
-            <Route
-              path="/exam/enroll/:examId"
-              element={<ExamEnrollmentPage />}
-            />
-            <Route
-              path="/exam/:attemptId/start"
-              element={
-                <ExamAttemptGuard>
-                  <ExamStartPage />
-                </ExamAttemptGuard>
-              }
-            />
-            <Route
-              path="/exam-start"
-              element={<ExamStartPage />}
-            />
-            <Route
-              path="/exam-submit"
-              element={<ExamSubmitPage score={0} total={0} timeTaken={0} />}
-            />
-            <Route path="/review/:id" element={<ReviewAnswersPage />} />
-            <Route path="/results" element={<ResultPage />} />
-            <Route path="/resetlink" element={<Resetlink />} />
-            <Route
-              path="/typing-profile-setup"
-              element={<TypingProfileSetup />}
-            />
           </Route>
+          <Route path="/system-check" element={<SystemCheckPage />} />
+          <Route path="/instructions" element={<InstructionPage />} />
+          <Route path="/exam/enroll/:examId" element={<ExamEnrollmentPage />} />
+          <Route
+            path="/exam/:attemptId/start"
+            element={
+              <ExamAttemptGuard>
+                <ExamStartPage />
+              </ExamAttemptGuard>
+            }
+          />
+          <Route path="/exam-start" element={<ExamStartPage />} />
+          <Route
+            path="/exam-submit"
+            element={<ExamSubmitPage score={0} total={0} timeTaken={0} />}
+          />
+          <Route path="/review/:id" element={<ReviewAnswersPage />} />
+          <Route path="/results" element={<ResultPage />} />
+          <Route path="/resetlink" element={<Resetlink />} />
+          <Route
+            path="/typing-profile-setup"
+            element={<TypingProfileSetup />}
+          />
         </Route>
       </Routes>
       <Toaster />

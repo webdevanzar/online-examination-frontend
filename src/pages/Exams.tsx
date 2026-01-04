@@ -38,7 +38,7 @@ function ExamCard({ exam }: { exam: Exam }) {
         return (
           <button
             disabled
-            className="w-full py-3 rounded-xl mt-2 font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-not-allowed opacity-75"
+            className="w-full py-3 rounded-xl mt-2 font-semibold bg-linear-to-r from-blue-500 to-blue-600 text-white cursor-not-allowed opacity-75"
           >
             ✓ Submitted (Score: {attemptStatus.score}/{attemptStatus.totalMarks})
           </button>
@@ -87,7 +87,7 @@ function ExamCard({ exam }: { exam: Exam }) {
         return (
           <button
             disabled
-            className="w-full py-3 rounded-xl mt-2 font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-not-allowed opacity-75"
+            className="w-full py-3 rounded-xl mt-2 font-semibold bg-linear-to-r from-blue-500 to-blue-600 text-white cursor-not-allowed opacity-75"
           >
             ✓ Submitted (Score: {attemptStatus.score}/{attemptStatus.totalMarks})
           </button>
@@ -193,9 +193,9 @@ function ExamCard({ exam }: { exam: Exam }) {
         <p className="flex items-center gap-2">
           📚 <span>Subject: {exam.subject}</span>
         </p>
-        <p className="flex items-center gap-2">
+        {/* <p className="flex items-center gap-2">
           📝 <span>Questions: {exam.questionCount}</span>
-        </p>
+        </p> */}
         <p className="flex items-center gap-2">
           ⭐ <span>Total Marks: {exam.totalMarks}</span>
         </p>
@@ -208,7 +208,6 @@ function ExamCard({ exam }: { exam: Exam }) {
 }
 
 export default function Exams() {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
     "ongoing" | "upcoming" | "completed"
   >("ongoing");

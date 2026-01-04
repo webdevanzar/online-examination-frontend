@@ -717,16 +717,53 @@ const checkFrameApi = async ({ attemptId, frame }: CheckFramePayload) => {
 export const useCheckFrame = () => {
   return useMutation<CheckFrameResponse, unknown, CheckFramePayload>({
     mutationFn: checkFrameApi,
+    onSuccess: (data, variables) => {
+      console.log(`[FACE-FRONTEND] Frame check response for ${variables.attemptId}:`, data);
+    },
+    onError: (error, variables) => {
+      console.error(`[FACE-FRONTEND] Frame check error for ${variables.attemptId}:`, error);
+    },
   });
+};
+
+export type AttemptSummary = {
+  id: string;
+  startedAt: string;
+  submittedAt: string | null;
+  score: number;
+  isSubmitted: boolean;
+  isTerminated: boolean;
+  terminationReason: string | null;
+  warningCount: number;
+  maxWarnings: number;
+  exam: {
+    id: string;
+    title: string;
+    totalMarks: number;
+    passingMarks: number;
+  };
+  answers: Array<{
+    id: string;
+    marksObtained: number;
+    writtenAnswer: string | null;
+    selectedOption: { id: string; isCorrect: boolean; optionText: string } | null;
+    question: {
+      id: string;
+      type: "mcq" | "typing";
+      questionText: string;
+      marks: number;
+      options: Array<{ id: string; optionText: string; isCorrect: boolean }>;
+    };
+  }>;
 };
 
 const getAttemptSummaryApi = async (attemptId: string) => {
   const res = await axiosInstance.get(`/student/attempt/${attemptId}/summary`);
-  return res.data as unknown;
+  return res.data as AttemptSummary;
 };
 
 export const useAttemptSummary = (attemptId: string, enabled = true) => {
-  return useQuery<unknown>({
+  return useQuery<AttemptSummary>({
     queryKey: ["attempt-summary", attemptId],
     queryFn: () => getAttemptSummaryApi(attemptId),
     enabled: !!attemptId && enabled,

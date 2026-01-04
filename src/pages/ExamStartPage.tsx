@@ -5,6 +5,7 @@ import { io, Socket } from "socket.io-client";
 import {
   useCheckFrame,
   useExamDetailsByAttempt,
+  useAutoSaveAnswers,
   useSubmitExam,
 } from "../services/auth";
 import { toast } from "sonner";
@@ -55,6 +56,7 @@ const ExamStartPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const checkFrame = useCheckFrame();
+  const autoSaveMutation = useAutoSaveAnswers();
   const submitExamMutation = useSubmitExam();
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -72,6 +74,12 @@ const ExamStartPage: React.FC = () => {
   const [keystrokeBuffer, setKeystrokeBuffer] = useState<KeystrokeEvent[]>([]);
   const [, setStream] = useState<MediaStream | null>(null);
   const didAutoSubmitRef = useRef(false);
+  const didLogNoVideoDimsRef = useRef(false);
+  const didLogFrameTickRef = useRef(false);
+  const captureAndSendFrameRef = useRef<() => void>(() => undefined);
+  const cameraStartedRef = useRef(false);
+  const lastCheckFrameErrorToastAtRef = useRef(0);
+  const lastWarningToastAtRef = useRef<Record<string, number>>({});
 
   // Voice monitoring - NOW HANDLED VIA HTTP BY VOICE ML WORKER
   // Warnings are received via Socket.IO "cheat:warning" events
@@ -184,28 +192,64 @@ const ExamStartPage: React.FC = () => {
 
     if (!confirmSubmit) return;
 
-    // Call API to submit exam
-    submitExamMutation.mutate(
+    const payloadAnswers = Object.entries(answers).map(([questionId, value]) => {
+      if (typeof value === "string") {
+        return {
+          questionId,
+          writtenAnswer: value,
+        };
+      }
+
+      return {
+        questionId,
+        selectedOptionId: String(value),
+      };
+    });
+
+    // 1) autosave current in-memory answers
+    autoSaveMutation.mutate(
       {
         examId: examDetails.exam.id,
-        attemptId: attemptId,
+        attemptId,
+        answers: payloadAnswers,
       },
       {
-        onSuccess: (data) => {
-          alert(`Exam submitted successfully! Your score: ${data.score}`);
-          // Navigate to results or exams page
-          navigate("/exams");
+        onSuccess: () => {
+          // 2) submit exam (backend will grade saved answers)
+          submitExamMutation.mutate(
+            {
+              examId: examDetails.exam.id,
+              attemptId: attemptId,
+            },
+            {
+              onSuccess: (data) => {
+                alert(`Exam submitted successfully! Your score: ${data.score}`);
+                navigate(`/results?attemptId=${attemptId}`);
+              },
+              onError: (error: unknown) => {
+                const errorMsg =
+                  axios.isAxiosError<{ message?: string }>(error)
+                    ? error.response?.data?.message ||
+                      "Failed to submit exam. Please try again."
+                    : "Failed to submit exam. Please try again.";
+                alert(errorMsg);
+                console.error("Submit error:", error);
+              },
+            }
+          );
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
           const errorMsg =
-            error?.response?.data?.message ||
-            "Failed to submit exam. Please try again.";
+            axios.isAxiosError<{ message?: string }>(error)
+              ? error.response?.data?.message ||
+                "Failed to save answers before submission. Please try again."
+              : "Failed to save answers before submission. Please try again.";
           alert(errorMsg);
-          console.error("Submit error:", error);
+          console.error("Auto-save error:", error);
         },
       }
     );
-  }, [examDetails, attemptId, submitExamMutation, navigate]);
+  }, [answers, autoSaveMutation, examDetails, attemptId, submitExamMutation, navigate]);
 
   const handleEndExam = () => {
     const confirmEnd = window.confirm(
@@ -219,21 +263,65 @@ const ExamStartPage: React.FC = () => {
   const captureAndSendFrame = useCallback(async () => {
     if (!videoRef.current || !attemptId) return;
 
+    const vw = videoRef.current.videoWidth;
+    const vh = videoRef.current.videoHeight;
+    if (!vw || !vh) {
+      if (!didLogNoVideoDimsRef.current) {
+        didLogNoVideoDimsRef.current = true;
+        console.warn(
+          "[FACE-FRONTEND] Video not ready yet (videoWidth/videoHeight is 0). Waiting for metadata/playback..."
+        );
+      }
+      return;
+    }
+
     try {
       const canvas = document.createElement("canvas");
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+
+      // Downscale to reduce payload size (backend json limit and network reliability)
+      const maxW = 640;
+      const scale = Math.min(1, maxW / vw);
+      canvas.width = Math.max(1, Math.floor(vw * scale));
+      canvas.height = Math.max(1, Math.floor(vh * scale));
+
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
       ctx.drawImage(videoRef.current, 0, 0);
-      const frameData = canvas.toDataURL("image/jpeg");
+
+      // Use medium quality to keep under server payload limits
+      const frameData = canvas.toDataURL("image/jpeg", 0.6);
+      console.log(
+        `[FACE-FRONTEND] Sending frame for attempt ${attemptId}, size: ${frameData.length} bytes (scaled ${canvas.width}x${canvas.height})`
+      );
       // delegate to API hook (handles baseURL/credentials)
-      checkFrame.mutate({ attemptId, frame: frameData });
+      checkFrame.mutate(
+        { attemptId, frame: frameData },
+        {
+          onError: (error: unknown) => {
+            const msg = axios.isAxiosError<{ message?: string }>(error)
+              ? error.response?.data?.message ||
+                `Face monitoring failed (${error.response?.status ?? "unknown"})`
+              : "Face monitoring failed";
+            console.error("[FACE-FRONTEND] checkFrame error:", error);
+            const now = Date.now();
+            if (now - lastCheckFrameErrorToastAtRef.current > 30000) {
+              lastCheckFrameErrorToastAtRef.current = now;
+              toast.error(msg, { duration: 2500, position: "top-center" });
+            }
+          },
+        }
+      );
     } catch (err) {
-      console.error("Failed to send frame:", err);
+      console.error("[FACE-FRONTEND] Failed to send frame:", err);
     }
   }, [attemptId, checkFrame]);
+
+  useEffect(() => {
+    captureAndSendFrameRef.current = () => {
+      void captureAndSendFrame();
+    };
+  }, [captureAndSendFrame]);
 
   const verifyKeystrokePattern = useCallback(async () => {
     try {
@@ -287,13 +375,40 @@ const ExamStartPage: React.FC = () => {
 
     const startCam = async () => {
       try {
+        if (cameraStartedRef.current) return;
+        cameraStartedRef.current = true;
+
         const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
         });
         localStream = mediaStream;
         setStream(mediaStream);
-        if (videoRef.current) videoRef.current.srcObject = mediaStream;
+        if (videoRef.current) {
+          // Avoid re-assigning srcObject (causes blinking/black screen in some browsers)
+          if (videoRef.current.srcObject !== mediaStream) {
+            videoRef.current.srcObject = mediaStream;
+          }
+
+          videoRef.current.onloadedmetadata = () => {
+            didLogNoVideoDimsRef.current = false;
+            console.log(
+              `[FACE-FRONTEND] Video metadata loaded (${videoRef.current?.videoWidth}x${videoRef.current?.videoHeight})`
+            );
+            captureAndSendFrameRef.current();
+          };
+
+          // Some browsers require explicit play() even with autoPlay
+          try {
+            await videoRef.current.play();
+          } catch (e) {
+            console.warn("[FACE-FRONTEND] video.play() failed:", e);
+          }
+        }
       } catch (err) {
+        cameraStartedRef.current = false;
         console.error("Camera access error:", err);
         alert(
           "Camera access is required for this exam. Please enable camera access."
@@ -309,20 +424,22 @@ const ExamStartPage: React.FC = () => {
         localStream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, []); // Empty dependency array - only run once on mount
+  }, []);
 
   // FRAME CAPTURE - Every 5 seconds
   useEffect(() => {
     if (!attemptId || terminated) return;
 
     const interval = setInterval(() => {
-      if (videoRef.current && !terminated) {
-        captureAndSendFrame();
+      if (!didLogFrameTickRef.current) {
+        didLogFrameTickRef.current = true;
+        console.log("[FACE-FRONTEND] Frame capture interval started (every 3s)");
       }
-    }, 5000);
+      if (videoRef.current && !terminated) captureAndSendFrameRef.current();
+    }, 3000);
 
     return () => clearInterval(interval);
-  }, [terminated, attemptId, captureAndSendFrame]);
+  }, [terminated, attemptId]);
 
   // KEYSTROKE VERIFICATION - Every 60 seconds
   useEffect(() => {
@@ -380,13 +497,47 @@ const ExamStartPage: React.FC = () => {
         console.log(`[CHEAT:WARNING] Received:`, data);
         setWarningCount(data.warningCount);
 
+        const msg = (data.message || "").toLowerCase();
+
+        const isVoiceWarning =
+          data.type === "voice" || msg.includes("voice") || msg.includes("speech");
+
+        const warningKey = isVoiceWarning
+          ? "voice"
+          : msg.includes("multiple faces")
+            ? "multiple_faces"
+            : msg.includes("no face")
+              ? "no_face"
+              : msg.includes("suspicious object")
+                ? "suspicious_object"
+                : "other";
+
+        const cooldownMs = isVoiceWarning ? 20000 : 8000;
+        const now = Date.now();
+        const lastAt = lastWarningToastAtRef.current[warningKey] ?? 0;
+        if (now - lastAt < cooldownMs) {
+          return;
+        }
+        lastWarningToastAtRef.current[warningKey] = now;
+
+        const allowedWarning =
+          isVoiceWarning ||
+          msg.includes("multiple faces") ||
+          msg.includes("no face") ||
+          msg.includes("suspicious object");
+
+        if (!allowedWarning) {
+          // Suppress non-essential warnings (avoid toast spam)
+          return;
+        }
+
         // Create user-friendly message based on fraud type
         let userMessage = data.message;
         let toastIcon = "⚠️";
         let toastStyle = {};
 
         // Voice detection warnings - ENHANCED with colorful gradient
-        if (data.type === "voice" || data.message.toLowerCase().includes("voice") || data.message.toLowerCase().includes("speech")) {
+        if (isVoiceWarning) {
           userMessage = "🎤 Voice detected - Please remain silent during the exam";
           toastIcon = "🎤";
           toastStyle = {
@@ -406,72 +557,72 @@ const ExamStartPage: React.FC = () => {
           });
         }
         // Face detection warnings - with gradient toasts
-        else if (data.message.includes("Looking away")) {
-          userMessage = "⚠️ Please keep your eyes on the screen";
-          toastStyle = {
-            background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-            color: "#fff",
-            fontSize: "15px",
-            fontWeight: "600",
-            padding: "14px 20px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 15px rgba(245,87,108,0.3)",
-          };
-          toast.warning(userMessage, {
-            duration: 4000,
-            position: "top-center",
-            style: toastStyle,
-          });
-        } else if (data.message.includes("Face not centered")) {
-          userMessage =
-            "⚠️ Please position your face in the center of the camera";
-          toastStyle = {
-            background: "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
-            color: "#333",
-            fontSize: "15px",
-            fontWeight: "600",
-            padding: "14px 20px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 15px rgba(252,182,159,0.3)",
-          };
-          toast.warning(userMessage, {
-            duration: 4000,
-            position: "top-center",
-            style: toastStyle,
-          });
-        } else if (data.message.includes("Face too close")) {
-          userMessage = "⚠️ Please move back from the camera";
-          toastStyle = {
-            background: "linear-gradient(135deg, #fdcbf1 0%, #e6dee9 100%)",
-            color: "#333",
-            fontSize: "15px",
-            fontWeight: "600",
-            padding: "14px 20px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 15px rgba(253,203,241,0.3)",
-          };
-          toast.warning(userMessage, {
-            duration: 4000,
-            position: "top-center",
-            style: toastStyle,
-          });
-        } else if (data.message.includes("Face too far")) {
-          userMessage = "⚠️ Please move closer to the camera";
-          toastStyle = {
-            background: "linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)",
-            color: "#333",
-            fontSize: "15px",
-            fontWeight: "600",
-            padding: "14px 20px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 15px rgba(161,196,253,0.3)",
-          };
-          toast.warning(userMessage, {
-            duration: 4000,
-            position: "top-center",
-            style: toastStyle,
-          });
-        } else if (data.message.includes("Multiple faces")) {
+        // else if (msg.includes("looking away")) {
+        //   userMessage = "⚠️ Please keep your eyes on the screen";
+        //   toastStyle = {
+        //     background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+        //     color: "#fff",
+        //     fontSize: "15px",
+        //     fontWeight: "600",
+        //     padding: "14px 20px",
+        //     borderRadius: "10px",
+        //     boxShadow: "0 4px 15px rgba(245,87,108,0.3)",
+        //   };
+        //   toast.warning(userMessage, {
+        //     duration: 4000,
+        //     position: "top-center",
+        //     style: toastStyle,
+        //   });}
+        //  else if (msg.includes("face not centered")) {
+        //   userMessage =
+        //     "⚠️ Please position your face in the center of the camera";
+        //   toastStyle = {
+        //     background: "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
+        //     color: "#333",
+        //     fontSize: "15px",
+        //     fontWeight: "600",
+        //     padding: "14px 20px",
+        //     borderRadius: "10px",
+        //     boxShadow: "0 4px 15px rgba(252,182,159,0.3)",
+        //   };
+        //   toast.warning(userMessage, {
+        //     duration: 4000,
+        //     position: "top-center",
+        //     style: toastStyle,
+        //   });
+        // } else if (msg.includes("face too close")) {
+        //   userMessage = "⚠️ Please move back from the camera";
+        //   toastStyle = {
+        //     background: "linear-gradient(135deg, #fdcbf1 0%, #e6dee9 100%)",
+        //     color: "#333",
+        //     fontSize: "15px",
+        //     fontWeight: "600",
+        //     padding: "14px 20px",
+        //     borderRadius: "10px",
+        //     boxShadow: "0 4px 15px rgba(253,203,241,0.3)",
+        //   };
+        //   toast.warning(userMessage, {
+        //     duration: 4000,
+        //     position: "top-center",
+        //     style: toastStyle,
+        //   });
+        // } else if (msg.includes("face too far")) {
+        //   userMessage = "⚠️ Please move closer to the camera";
+        //   toastStyle = {
+        //     background: "linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)",
+        //     color: "#333",
+        //     fontSize: "15px",
+        //     fontWeight: "600",
+        //     padding: "14px 20px",
+        //     borderRadius: "10px",
+        //     boxShadow: "0 4px 15px rgba(161,196,253,0.3)",
+        //   };
+        //   toast.warning(userMessage, {
+        //     duration: 4000,
+        //     position: "top-center",
+        //     style: toastStyle,
+        //   });}
+         else if (msg.includes("multiple faces")) {
           userMessage = "⚠️ Multiple faces detected - Ensure you are alone";
           toastIcon = "👥";
           toastStyle = {
@@ -489,7 +640,7 @@ const ExamStartPage: React.FC = () => {
             style: toastStyle,
             icon: toastIcon,
           });
-        } else if (data.message.includes("No face")) {
+        } else if (msg.includes("no face")) {
           userMessage = "⚠️ Your face is not visible - Please stay in view";
           toastIcon = "👤";
           toastStyle = {
@@ -507,7 +658,7 @@ const ExamStartPage: React.FC = () => {
             style: toastStyle,
             icon: toastIcon,
           });
-        } else if (data.message.includes("Rapid movement")) {
+        } else if (msg.includes("rapid") && msg.includes("movement")) {
           userMessage = "⚠️ Suspicious rapid movement detected";
           toastStyle = {
             background: "linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%)",
@@ -523,7 +674,7 @@ const ExamStartPage: React.FC = () => {
             position: "top-center",
             style: toastStyle,
           });
-        } else if (data.message.includes("frozen screen")) {
+        } else if (msg.includes("frozen screen") || msg.includes("static image")) {
           userMessage = "⚠️ Possible screen fraud detected";
           toastIcon = "🖥️";
           toastStyle = {
@@ -541,7 +692,7 @@ const ExamStartPage: React.FC = () => {
             style: toastStyle,
             icon: toastIcon,
           });
-        } else if (data.message.includes("brightness change")) {
+        } else if (msg.includes("brightness")) {
           userMessage = "⚠️ Sudden screen change detected";
           toastStyle = {
             background: "linear-gradient(135deg, #fad0c4 0%, #ffd1ff 100%)",
@@ -560,8 +711,7 @@ const ExamStartPage: React.FC = () => {
         }
         // Object detection warnings - with colorful gradients
         else if (
-          data.message.includes("phone") ||
-          data.message.includes("cell phone")
+          msg.includes("phone")
         ) {
           userMessage = "⚠️ Mobile phone detected - Please remove it";
           toastIcon = "📱";
@@ -580,7 +730,7 @@ const ExamStartPage: React.FC = () => {
             style: toastStyle,
             icon: toastIcon,
           });
-        } else if (data.message.includes("book")) {
+        } else if (msg.includes("book")) {
           userMessage = "⚠️ Book detected - Please remove study materials";
           toastIcon = "📚";
           toastStyle = {
@@ -599,8 +749,8 @@ const ExamStartPage: React.FC = () => {
             icon: toastIcon,
           });
         } else if (
-          data.message.includes("laptop") ||
-          data.message.includes("computer")
+          msg.includes("laptop") ||
+          msg.includes("computer")
         ) {
           userMessage =
             "⚠️ Additional device detected - Only one device allowed";
@@ -613,6 +763,24 @@ const ExamStartPage: React.FC = () => {
             padding: "16px 24px",
             borderRadius: "12px",
             boxShadow: "0 6px 25px rgba(221,36,118,0.4)",
+          };
+          toast.error(userMessage, {
+            duration: 6000,
+            position: "top-center",
+            style: toastStyle,
+            icon: toastIcon,
+          });
+        } else if (msg.includes("suspicious object detected")) {
+          userMessage = "⚠️ Suspicious object detected - Please remove it";
+          toastIcon = "🧾";
+          toastStyle = {
+            background: "linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%)",
+            color: "#fff",
+            fontSize: "16px",
+            fontWeight: "700",
+            padding: "16px 24px",
+            borderRadius: "12px",
+            boxShadow: "0 6px 25px rgba(252,74,26,0.4)",
           };
           toast.error(userMessage, {
             duration: 6000,
@@ -934,7 +1102,7 @@ const ExamStartPage: React.FC = () => {
               {warningCount} / {maxWarnings}
             </p>
             <p className="text-xs text-yellow-700 mt-1">
-              Exam will auto-terminate after {maxWarnings} warnings
+              Warnings are shown for testing. Exam will not auto-terminate.
             </p>
           </div>
         )}
