@@ -325,7 +325,11 @@ const ExamStartPage: React.FC = () => {
 
   const verifyKeystrokePattern = useCallback(async () => {
     try {
-      await axios.post(
+      const res = await axios.post<{
+        verified: boolean;
+        confidence: number;
+        message: string;
+      }>(
         `${BACKEND_URL}/api/biometric/user/verify-keystroke`,
         {
           keystrokes: keystrokeBuffer,
@@ -333,8 +337,15 @@ const ExamStartPage: React.FC = () => {
         },
         { withCredentials: true }
       );
-      // Return success to trigger buffer clear in effect
-      return true;
+      const verified = Boolean(res.data?.verified);
+      if (!verified) {
+        console.warn("[KEYSTROKE] Pattern mismatch", {
+          confidence: res.data?.confidence,
+          message: res.data?.message,
+        });
+      }
+      // Only return success when backend explicitly verified the typing pattern
+      return verified;
     } catch (err) {
       console.error("Keystroke verification failed:", err);
       return false;
@@ -446,7 +457,7 @@ const ExamStartPage: React.FC = () => {
     if (terminated) return;
 
     const interval = setInterval(() => {
-      if (keystrokeBuffer.length >= 20 && !terminated) {
+      if (keystrokeBuffer.length >= 60 && !terminated) {
         verifyKeystrokePattern().then((success) => {
           if (success) {
             setKeystrokeBuffer([]);
@@ -465,7 +476,7 @@ const ExamStartPage: React.FC = () => {
     const prevQ = currentIndex > 0 ? questions[currentIndex - 1] : null;
 
     // If previous question was typing and we have keystroke data, verify
-    if (prevQ && prevQ.type === "TYPING" && keystrokeBuffer.length >= 20) {
+    if (prevQ && prevQ.type === "TYPING" && keystrokeBuffer.length >= 60) {
       verifyKeystrokePattern().then((success) => {
         if (success) {
           setKeystrokeBuffer([]);
