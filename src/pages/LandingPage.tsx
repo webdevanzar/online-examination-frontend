@@ -1,44 +1,40 @@
 import CountUp from "react-countup";
 import { colors } from "../utils/colortheme";
 import {
-  FiBook,
   FiBarChart2,
   FiFileText,
-  FiClock,
-  FiUsers,
-  FiAward,
   FiZap,
 } from "react-icons/fi";
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
 
 
-const courses = [
-  {
-    title: "Mathematics",
-    duration: "8 weeks",
-    students: "2.5K",
-    level: "Beginner",
-  },
-  {
-    title: "Science Excellence",
-    duration: "10 weeks",
-    students: "3.1K",
-    level: "Intermediate",
-  },
-  {
-    title: "English Mastery",
-    duration: "6 weeks",
-    students: "1.8K",
-    level: "Beginner",
-  },
-  {
-    title: "History & Culture",
-    duration: "9 weeks",
-    students: "2.2K",
-    level: "Intermediate",
-  },
-];
+// const courses = [
+//   {
+//     title: "Mathematics",
+//     duration: "8 weeks",
+//     students: "2.5K",
+//     level: "Beginner",
+//   },
+//   {
+//     title: "Science Excellence",
+//     duration: "10 weeks",
+//     students: "3.1K",
+//     level: "Intermediate",
+//   },
+//   {
+//     title: "English Mastery",
+//     duration: "6 weeks",
+//     students: "1.8K",
+//     level: "Beginner",
+//   },
+//   {
+//     title: "History & Culture",
+//     duration: "9 weeks",
+//     students: "2.2K",
+//     level: "Intermediate",
+//   },
+// ];
 
 const exams = [
   {
@@ -191,67 +187,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* COURSES */}
-      <section
-        id="courses"
-        className="py-20 px-4 bg-white/40 backdrop-blur-xl rounded-xl mt-12"
-      >
-        <div className="text-center mb-12">
-          <span
-            className="inline-block px-5 py-2 rounded-full text-sm font-medium mb-4"
-            style={{
-              background: "#DFF8E6",
-              color: colors.green,
-            }}
-          >
-            Our Courses
-          </span>
-
-          <h2 className="text-4xl font-bold" style={{ color: colors.darkText }}>
-            Explore Our Course Library
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-7xl mx-auto">
-          {courses.map((course, index) => (
-            <div
-              key={index}
-              className="bg-white/80 backdrop-blur-md rounded-2xl shadow-md hover:shadow-lg transition p-6 border"
-              style={{ borderColor: colors.borderGray }}
-            >
-              <div className="p-3 rounded-xl mb-5 bg-[#EAFCEF]">
-                <FiBook size={28} color={colors.green} />
-              </div>
-
-              <h3 className="text-xl font-semibold mb-3">{course.title}</h3>
-
-              <div
-                className="h-px w-full mb-4"
-                style={{ background: colors.borderGray }}
-              />
-
-              <div className="space-y-2 text-sm text-gray-600">
-                <div className="flex items-center gap-2">
-                  <FiClock /> {course.duration}
-                </div>
-                <div className="flex items-center gap-2">
-                  <FiUsers /> {course.students} students
-                </div>
-                <div className="flex items-center gap-2">
-                  <FiAward /> {course.level}
-                </div>
-              </div>
-
-              <button
-                className="w-full mt-6 py-2 rounded-lg text-white"
-                style={{ background: colors.green }}
-              >
-                Enroll Now
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* EXAMS */}
       <section

@@ -7,7 +7,6 @@ import { ExamHistory } from "./pages/ExamHistory";
 import Layout from "./layouts/Layout";
 import Exams from "./pages/Exams";
 import Profile from "./pages/Profile";
-import Courses from "./pages/Courses";
 import InstructionPage from "./pages/InstructionPage";
 import CountdownPage from "./pages/CountdownPage";
 import SystemCheckPage from "./pages/SystemCheckPage";
@@ -41,7 +40,6 @@ function App() {
           <Route element={<Layout />}>
             <Route index element={<LandingPage />} />
             <Route path="/exam-history" element={<ExamHistory />} />
-            <Route path="/courses" element={<Courses />} />
             <Route path="/exams" element={<Exams />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/about" element={<About />} />

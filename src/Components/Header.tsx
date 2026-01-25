@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { FiBell, FiMenu, FiX, FiUser, FiLogOut } from "react-icons/fi";
+import {  FiMenu, FiX, FiUser, FiLogOut } from "react-icons/fi";
 import { FaHistory } from "react-icons/fa";
-import Notification from "./Notification";
 import { useSelector } from "react-redux";
 import type { RootState } from "../store";
 import { useStudentLogout } from "../services/auth";
@@ -11,7 +10,6 @@ import { toast } from "sonner";
 const Header = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const logoutMutation = useStudentLogout();
   const { fullName, email, profileImage } = useSelector(
     (state: RootState) => state.auth
@@ -29,10 +27,6 @@ const Header = () => {
         toast.error("Failed to logout");
       },
     });
-  };
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
   };
 
   return (
@@ -73,16 +67,6 @@ const Header = () => {
             About
           </NavLink>
           <NavLink
-            to="/courses"
-            className={({ isActive }) =>
-              `hover:text-green-700 transition ${
-                isActive ? "border-b-2 border-green-700 pb-1" : ""
-              }`
-            }
-          >
-            Courses
-          </NavLink>
-          <NavLink
             to="/exams"
             className={({ isActive }) =>
               `hover:text-green-700 transition ${
@@ -108,13 +92,6 @@ const Header = () => {
             </button>
           </NavLink>
 
-          {/* Notification */}
-          <button
-            onClick={toggleSidebar}
-            className="w-10 h-10 rounded-xl border-2 flex items-center justify-center hover:bg-gray-100"
-          >
-            <FiBell size={20} className="text-green-700" />
-          </button>
 
           {/* DESKTOP MENU BUTTON */}
           <div className="relative hidden md:block">
@@ -207,13 +184,7 @@ const Header = () => {
                   >
                     Home
                   </Link>
-                  <Link
-                    to="/courses"
-                    onClick={() => setMobileMenu(false)}
-                    className="hover:bg-blue-200 rounded-xs p-0.5"
-                  >
-                    Courses
-                  </Link>
+        
                   <Link
                     to="/exams"
                     onClick={() => setMobileMenu(false)}
@@ -252,7 +223,6 @@ const Header = () => {
         </div>
       </header>
 
-      <Notification sidebarOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
     </>
   );
 };
