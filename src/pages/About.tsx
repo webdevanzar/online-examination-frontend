@@ -1,135 +1,226 @@
-import { Link } from "react-router-dom";
-import { FiAward, FiUsers, FiBook, FiShield, FiUser, FiMic, FiType } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
+import { FiAward, FiUsers, FiShield, FiUser, FiMic,  FiArrowRight } from "react-icons/fi";
+import { motion, type Variants } from "framer-motion";
+import { colors } from "../utils/colortheme";
 
 const About = () => {
+  const navigate = useNavigate();
+
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.15 }
+    }
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { duration: 0.6, ease: "easeOut" } 
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">About ExamHub</h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Empowering students and professionals to achieve their academic and career goals through innovative online examination solutions.
-          </p>
-        </div>
+    <div className="relative min-h-screen bg-white overflow-hidden font-sans selection:bg-green-100 selection:text-green-900">
+      {/* Background Blobs */}
+      <div className="absolute inset-0 overflow-hidden -z-10 pointer-events-none">
+        <motion.div
+          animate={{
+            x: [0, 30, 0],
+            y: [0, 50, 0],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[-5%] right-[-5%] w-[400px] h-[400px] rounded-full blur-[100px] opacity-10"
+          style={{ backgroundColor: colors.green }}
+        ></motion.div>
+        <motion.div
+          animate={{
+            x: [0, -20, 0],
+            y: [0, 40, 0],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+          className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full blur-[120px] opacity-10"
+          style={{ backgroundColor: "#DFF8E6" }}
+        ></motion.div>
+      </div>
 
-        {/* Mission Section */}
-        <div className="bg-white rounded-xl shadow-md p-8 mb-12">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Our Mission</h2>
-          <p className="text-gray-600 mb-6">
-            At ExamHub, we're committed to providing a seamless, secure, and efficient examination experience for both students and educators. 
-            Our platform is designed to make online assessments more accessible, reliable, and effective.
-          </p>
-          <div className="grid md:grid-cols-2 gap-8 mt-10">
-            <div className="flex items-start">
-              <div className="shrink-0 bg-green-100 p-3 rounded-lg mr-4">
-                <FiAward className="h-6 w-6 text-green-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Proven Success</h3>
-                <p className="text-gray-600">Thousands of students have successfully taken exams through our platform, achieving their academic goals.</p>
-              </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative z-10">
+        {/* HERO SECTION */}
+        <motion.div 
+          initial="hidden"
+          animate="visible"
+          variants={containerVariants}
+          className="text-center mb-24"
+        >
+          <motion.div
+            variants={itemVariants}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-6 border border-green-100 bg-green-50/50 text-green-600 uppercase tracking-widest shadow-sm"
+          >
+            <span className="flex h-2 w-2 rounded-full bg-green-500"></span>
+            Our Journey & Passion
+          </motion.div>
+          
+          <motion.h1 
+            variants={itemVariants}
+            className="text-5xl md:text-7xl font-black mb-8 leading-tight"
+            style={{ color: colors.darkText }}
+          >
+            Redefining the <span className="text-transparent bg-clip-text bg-linear-to-r from-green-600 to-green-400">Future</span> <br />
+            of Assessments
+          </motion.h1>
+          
+          <motion.p 
+            variants={itemVariants}
+            className="text-lg md:text-xl text-gray-500 max-w-3xl mx-auto leading-relaxed"
+          >
+            At ExamHub, we believe that testing shouldn't just be an evaluation—it should be a gateway 
+            to growth. We build technologies that empower learners to achieve their full potential.
+          </motion.p>
+        </motion.div>
+
+        {/* MISSION & VISION */}
+        <motion.div 
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="grid lg:grid-cols-2 gap-12 items-center mb-32"
+        >
+          <div className="relative group">
+            <div className="aspect-[4/3] rounded-[3rem] overflow-hidden shadow-2xl">
+              <img 
+                src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" 
+                alt="Team working" 
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              />
+              <div className="absolute inset-0 bg-linear-to-tr from-green-900/40 to-transparent opacity-60"></div>
             </div>
-            <div className="flex items-start">
-              <div className="shrink-0 bg-blue-100 p-3 rounded-lg mr-4">
-                <FiUsers className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Dedicated Support</h3>
-                <p className="text-gray-600">Our support team is available 24/7 to assist with any questions or technical issues.</p>
-              </div>
+            
+            {/* Floating Stats */}
+            <motion.div 
+              animate={{ y: [0, -15, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -bottom-8 -right-8 bg-white p-6 rounded-3xl shadow-2xl border border-gray-100 max-w-[200px]"
+            >
+              <div className="text-3xl font-black text-green-600 mb-1">10k+</div>
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Success Stories</div>
+            </motion.div>
+          </div>
+
+          <div className="lg:pl-8">
+            <h2 className="text-4xl font-bold mb-8" style={{ color: colors.darkText }}>Our Mission</h2>
+            <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+              We're committed to providing a seamless, secure, and efficient examination experience. 
+              Our platform is designed to make online assessments more accessible, reliable, and 
+              truly reflective of a student's knowledge.
+            </p>
+            
+            <div className="space-y-6">
+              {[
+                { title: "Academic Excellence", color: "bg-blue-50 text-blue-600", icon: <FiAward /> },
+                { title: "Global Accessibility", color: "bg-purple-50 text-purple-600", icon: <FiUsers /> }
+              ].map((item, i) => (
+                <div key={i} className="flex gap-4 p-4 rounded-2xl bg-gray-50/50 border border-gray-100 hover:border-green-200 transition-colors">
+                  <div className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center font-bold ${item.color}`}>
+                    {item.icon}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-800">{item.title}</h4>
+                    <p className="text-sm text-gray-500">Empowering millions through accessible and fair testing environments.</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Features */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-bold text-gray-800 mb-8 text-center">Why Choose ExamHub?</h2>
+        {/* FEATURES GRID */}
+        <div className="mb-32">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-black mb-6" style={{ color: colors.darkText }}>Built for Integrity</h2>
+            <p className="text-gray-500 max-w-2xl mx-auto">Our multi-layered security suite ensures that every certificate earned on our platform holds genuine value.</p>
+          </div>
+          
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: <FiShield className="h-6 w-6 text-green-500" />,
-                title: "Secure Platform",
-                description: "Advanced security measures to ensure the integrity of every exam."
+                icon: <FiUser className="text-indigo-500" />,
+                title: "Face Recognition",
+                description: "Continuous AI-driven identity verification to ensure exam integrity.",
+                color: "indigo"
               },
               {
-                icon: <FiBook className="h-6 w-6 text-blue-500" />,
-                title: "Wide Range of Subjects",
-                description: "Comprehensive coverage of subjects and courses for all levels."
+                icon: <FiMic className="text-rose-500" />,
+                title: "Voice Analysis",
+                description: "Sophisticated audio monitoring to identify and prevent unauthorized assistance.",
+                color: "rose"
               },
               {
-                icon: <FiUsers className="h-6 w-6 text-purple-500" />,
-                title: "User-Friendly Interface",
-                description: "Intuitive design that makes taking exams simple and straightforward."
+                icon: <FiShield className="text-emerald-500" />,
+                title: "Encryption",
+                description: "Military-grade data protection for all exam content and student results.",
+                color: "emerald"
               }
-            ].map((feature, index) => (
-              <div key={index} className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            ].map((feature, i) => (
+              <motion.div 
+                key={i}
+                whileHover={{ y: -10 }}
+                className="p-8 rounded-[2.5rem] bg-white border border-gray-100 shadow-sm hover:shadow-2xl transition-all duration-500 group"
+              >
+                <div className={`w-14 h-14 rounded-2xl bg-${feature.color}-50 flex items-center justify-center mb-6 text-2xl group-hover:scale-110 transition-transform`}>
                   {feature.icon}
                 </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Advanced Security Features */}
-        <div className="bg-white rounded-xl shadow-md p-8 mb-12">
-          <h2 className="text-2xl font-bold text-gray-800 mb-8 text-center">Advanced Security Features</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: <FiUser className="h-6 w-6 text-indigo-500" />,
-                title: "Face Detection",
-                description: "Real-time face recognition ensures the right student is taking the exam by continuously verifying identity."
-              },
-              {
-                icon: <FiMic className="h-6 w-6 text-red-500" />,
-                title: "Voice Detection",
-                description: "Voice analysis to detect and prevent suspicious activities during the examination."
-              },
-              {
-                icon: <FiType className="h-6 w-6 text-amber-500" />,
-                title: "Keystroke Dynamics",
-                description: "Analyzes typing patterns to verify student identity based on unique typing behavior."
-              }
-            ].map((feature, index) => (
-              <div key={`security-${index}`} className="bg-gray-50 p-6 rounded-xl hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
-                  {feature.icon}
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
-              </div>
+                <h3 className="text-xl font-bold mb-4" style={{ color: colors.darkText }}>{feature.title}</h3>
+                <p className="text-gray-500 leading-relaxed">{feature.description}</p>
+              </motion.div>
             ))}
           </div>
         </div>
 
         {/* CTA */}
-        <div className="bg-green-50 rounded-xl p-8 text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Ready to get started?</h2>
-          <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-            Join thousands of students who have already experienced the ExamHub difference.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link
-              to="/signup"
-              className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
-            >
-              Sign Up Now
-            </Link>
-            <Link
-              to="/contact"
-              className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Contact Us
-            </Link>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="relative rounded-[3rem] p-12 md:p-20 overflow-hidden shadow-2xl shadow-green-200 text-center"
+          style={{ backgroundColor: colors.green }}
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+          
+          <div className="relative z-10">
+            <h2 className="text-4xl md:text-6xl font-black text-white mb-8">Ready to Start?</h2>
+            <p className="text-xl text-green-50 mb-12 max-w-2xl mx-auto opacity-90">
+              Transform your learning journey today. Join a community of excellence.
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center gap-4">
+              <button
+                onClick={() => navigate("/register")}
+                className="px-10 py-5 bg-white text-green-700 rounded-2xl font-black text-xl shadow-xl transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+              >
+                Get Started <FiArrowRight />
+              </button>
+              <button
+                onClick={() => navigate("/contact")}
+                className="px-10 py-5 bg-green-600 text-white rounded-2xl font-black text-xl border border-white/20 transition-all hover:bg-green-500 active:scale-95"
+              >
+                Talk to Us
+              </button>
+            </div>
           </div>
-        </div>
+        </motion.div>
       </div>
+
+      {/* FOOTER MINI */}
+      <footer className="py-12 text-center text-gray-400 text-sm font-medium border-t border-gray-50">
+        <p>&copy; {new Date().getFullYear()} ExamHub. Built with passion for learners everywhere.</p>
+      </footer>
     </div>
   );
 };
 
 export default About;
+

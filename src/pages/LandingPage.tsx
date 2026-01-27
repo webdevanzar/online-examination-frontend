@@ -1,61 +1,63 @@
 import CountUp from "react-countup";
 import { colors } from "../utils/colortheme";
-import { FiBarChart2, FiFileText, FiZap, FiClock, FiAward, FiUsers, FiCheckCircle, FiStar, FiBookOpen, FiTarget, FiTrendingUp, FiHelpCircle } from "react-icons/fi";
-import { NavLink, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { FiBarChart2, FiFileText, FiZap, FiClock, FiAward, FiUsers, FiCheckCircle, FiStar, FiBookOpen, FiTarget, FiTrendingUp, FiArrowRight, FiChevronDown } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { useState } from "react";
 
 const exams = [
   {
     title: "Math Advanced Level",
-    description:
-      "Covers algebra, geometry, and calculus with 50 challenging questions.",
+    description: "Master complex mathematical concepts including calculus, linear algebra, and advanced geometry.",
     duration: "120 mins",
     questions: "50",
-    enrolled: "1250",
+    enrolled: "1.2k+",
     level: "Advanced",
-    icon: <FiBarChart2 size={28} color={colors.green} />,
+    icon: <FiBarChart2 size={24} />,
+    popular: true
   },
   {
     title: "Science Fundamentals",
-    description:
-      "Test your knowledge of basic scientific principles and theories.",
+    description: "Explore the core principles of physics, chemistry, and biology in this comprehensive foundation course.",
     duration: "90 mins",
     questions: "40",
     enrolled: "980",
     level: "Intermediate",
-    icon: <FiZap size={28} color={colors.green} />,
+    icon: <FiZap size={24} />,
+    popular: false
   },
   {
     title: "English Proficiency",
-    description: "Assess your grammar, vocabulary, and reading comprehension.",
+    description: "Perfect your command of the English language through grammar, comprehension, and creative writing.",
     duration: "60 mins",
     questions: "30",
-    enrolled: "1500",
+    enrolled: "1.5k+",
     level: "Beginner",
-    icon: <FiFileText size={28} color={colors.green} />,
+    icon: <FiFileText size={24} />,
+    popular: false
   },
 ];
 
 const features = [
   {
-    icon: <FiClock size={32} color={colors.green} />,
+    icon: <FiClock size={28} />,
     title: "Flexible Timing",
-    description: "Take exams at your convenience with 24/7 availability and no time pressure."
+    description: "Take exams at your convenience with 24/7 availability. No stress, just your own pace."
   },
   {
-    icon: <FiAward size={32} color={colors.green} />,
+    icon: <FiAward size={28} />,
     title: "Instant Results",
-    description: "Get immediate feedback and detailed performance analysis right after completion."
+    description: "Get immediate feedback and a detailed performance breakdown right after submission."
   },
   {
-    icon: <FiUsers size={32} color={colors.green} />,
+    icon: <FiUsers size={28} />,
     title: "Expert Created",
-    description: "All exams crafted by subject matter experts and experienced educators."
+    description: "Curated by top-tier educators to ensure the highest quality and relevancy of content."
   },
   {
-    icon: <FiCheckCircle size={32} color={colors.green} />,
-    title: "Certified",
-    description: "Earn recognized certificates upon successful completion of exams."
+    icon: <FiCheckCircle size={28} />,
+    title: "Accredited",
+    description: "Earn certificates recognized by industry leaders and academic institutions globally."
   }
 ];
 
@@ -63,499 +65,485 @@ const testimonials = [
   {
     name: "Sarah Johnson",
     role: "Computer Science Student",
-    content: "ExamHub helped me prepare for my final exams. The instant feedback feature is amazing!",
-    rating: 5
+    content: "ExamHub transformed my preparation. The instant feedback allowed me to focus on my weak points effectively.",
+    initials: "SJ",
+    color: "#4ADE80"
   },
   {
     name: "Michael Chen",
     role: "Engineering Graduate",
-    content: "The quality of questions and detailed explanations helped me improve my scores significantly.",
-    rating: 5
+    content: "The variety of exams and the depth of questions are unmatched. It feels like a real hall experience.",
+    initials: "MC",
+    color: "#60A5FA"
   },
   {
     name: "Emily Davis",
     role: "Medical Student",
-    content: "I love the flexibility and variety of subjects. It's become my go-to study platform.",
-    rating: 5
+    content: "I love how clean the interface is. It makes studying less of a chore and more of an interactive journey.",
+    initials: "ED",
+    color: "#F472B6"
   }
 ];
 
 const howItWorks = [
   {
     step: "01",
-    title: "Choose Your Exam",
-    description: "Browse through our extensive collection of exams across various subjects.",
-    icon: <FiBookOpen size={24} color={colors.green} />
+    title: "Choose Path",
+    description: "Select from hundreds of curated exams across various disciplines.",
+    icon: <FiBookOpen size={24} />
   },
   {
     step: "02",
-    title: "Take the Test",
-    description: "Complete the exam at your own pace with our user-friendly interface.",
-    icon: <FiTarget size={24} color={colors.green} />
+    title: "Testing Phase",
+    description: "Take the exam in a focused, distraction-free environment.",
+    icon: <FiTarget size={24} />
   },
   {
     step: "03",
-    title: "Get Results",
-    description: "Receive instant results with detailed performance analysis and recommendations.",
-    icon: <FiTrendingUp size={24} color={colors.green} />
+    title: "Get Analytics",
+    description: "Receive a comprehensive report on your performance metrics.",
+    icon: <FiTrendingUp size={24} />
   }
-];
-
-const achievements = [
-  { title: "Fast Learner", count: "500+", description: "Students who completed 5+ exams" },
-  { title: "Top Scorer", count: "200+", description: "Students with 90%+ average" },
-  { title: "Perfect Score", count: "50+", description: "Students who scored 100%" },
-  { title: "Consistent", count: "1000+", description: "Active monthly users" }
 ];
 
 const faqs = [
   {
     question: "How do I start taking exams?",
-    answer: "Simply create an account, browse our exam collection, and click on any exam to begin."
+    answer: "Simply create an account, browse our extensive exam library, and click 'Take Exam' on any subject that interests you."
   },
   {
-    question: "Are the exams timed?",
-    answer: "Most exams have suggested time limits, but you can take them at your own pace."
+    question: "Are certificates provided?",
+    answer: "Yes! Every successfully completed exam earns you a signed digital certificate printable in high resolution."
   },
   {
     question: "Can I retake an exam?",
-    answer: "Yes, you can retake exams as many times as you want to improve your score."
-  },
-  {
-    question: "Do I get a certificate?",
-    answer: "Yes, you receive a downloadable certificate upon successful completion of each exam."
+    answer: "Absolutely. We encourage learning through repetition. You can retake any exam to improve your mastery and score."
   }
 ];
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Background Circles */}
-      <div className="-z-10 absolute inset-0 overflow-hidden">
-        {/* Left Circle (larger) */}
-        <motion.div
-          className="absolute w-[300px] h-[300px] md:w-[400px] md:h-[400px] rounded-full"
-          initial={{ opacity: 0.6 }}
-          animate={{
-            opacity: [0.4, 0.6, 0.4],
-            scale: [1, 1.05, 1],
-          }}
-          transition={{
-            duration: 10,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          style={{
-            backgroundColor: "#DFF8E6",
-            top: "100px",
-            left: "-100px",
-          }}
-        />
+  const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
-        {/* Right Circle (smaller) */}
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.2 }
+    }
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+  };
+
+  return (
+    <div className="relative min-h-screen font-sans bg-white selection:bg-green-100 selection:text-green-900">
+      {/* Animated Background Blobs */}
+      <div className="absolute inset-0 overflow-hidden -z-10 pointer-events-none">
         <motion.div
-          className="absolute w-[300px] h-[300px] md:w-[400px] md:h-[400px] top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full"
-          initial={{ opacity: 0.6 }}
           animate={{
-            opacity: [0.4, 0.6, 0.4],
+            x: [0, 50, 0],
+            y: [0, 30, 0],
             scale: [1, 1.1, 1],
           }}
-          transition={{
-            duration: 15,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 1,
+          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full blur-[100px] opacity-20"
+          style={{ backgroundColor: colors.green }}
+        ></motion.div>
+        <motion.div
+          animate={{
+            x: [0, -40, 0],
+            y: [0, 60, 0],
+            scale: [1, 1.2, 1],
           }}
-          style={{
-            backgroundColor: "#DFF8E6",
-          }}
-        />
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full blur-[120px] opacity-15"
+          style={{ backgroundColor: "#DFF8E6" }}
+        ></motion.div>
       </div>
 
-      {/* HERO */}
-      <section className="text-center py-20 px-4 bg-transparent">
-        <div
-          className="inline-block px-5 py-2 rounded-full text-sm mb-5"
-          style={{
-            background: "#DFF8E6",
-            color: colors.green,
-          }}
+      {/* HERO SECTION */}
+      <section className="relative pt-32 pb-20 px-4 md:px-8">
+        <motion.div 
+          initial="hidden"
+          animate="visible"
+          variants={containerVariants}
+          className="max-w-6xl mx-auto text-center"
         >
-          Welcome to ExamHub
-        </div>
-
-        <h1
-          className="text-4xl md:text-5xl font-bold mb-4"
-          style={{ color: colors.darkText }}
-        >
-          Ace Your Exams,{" "}
-          <span style={{ color: colors.green }}>Master Your Skills</span>
-        </h1>
-
-        <p
-          className="max-w-2xl mx-auto text-lg"
-          style={{ color: colors.softText }}
-        >
-          Prepare for success with our comprehensive exam platform.
-        </p>
-
-        <div className="mt-8 flex justify-center gap-4">
-          <NavLink
-            to="/exams"
-            className="px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 transform hover:scale-[1.05] hover:shadow-lg hover:brightness-110 inline-block"
-            style={{ background: colors.green }}
-            onClick={() => console.log("Navigating to /exams")}
+          <motion.div
+            variants={itemVariants}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold mb-8 border border-green-100 shadow-sm transition-colors hover:bg-green-50"
+            style={{ backgroundColor: "#DFF8E6", color: colors.green }}
           >
-            Get Started →
-          </NavLink>
+            <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+            The Future of Online Testing
+          </motion.div>
 
-          <NavLink
-            to="/courses"
-            className="px-6 py-3 rounded-lg font-semibold border transition-all duration-300 hover:bg-green-800 hover:text-white hover:scale-[1.05] inline-block"
-            onClick={() => console.log("Navigating to /courses")}
+          <motion.h1 
+            variants={itemVariants}
+            className="text-5xl md:text-7xl font-extrabold tracking-tight mb-8 leading-[1.1]"
+            style={{ color: colors.darkText }}
           >
-            Learn More
-          </NavLink>
-        </div>
+            Elevate Your <span className="text-transparent bg-clip-text bg-linear-to-r from-green-600 to-green-400">Knowledge</span> <br />
+            with Precision Testing
+          </motion.h1>
 
-        {/* Stats */}
-        <div className="flex justify-center gap-10 mt-14 text-center">
-          {/* Students */}
-          <div>
-            <h2 className="text-3xl font-bold" style={{ color: colors.green }}>
-              <CountUp end={1000} duration={2.2} separator="," suffix="+" />
-            </h2>
-            <p style={{ color: colors.softText }}>Students</p>
-          </div>
+          <motion.p 
+            variants={itemVariants}
+            className="max-w-2xl mx-auto text-lg md:text-xl mb-12"
+            style={{ color: colors.softText }}
+          >
+            Join 10,000+ students worldwide mastering their skills through our advanced, 
+            expert-certified examination platform.
+          </motion.p>
 
-          {/* Exams */}
-          <div>
-            <h2 className="text-3xl font-bold" style={{ color: colors.green }}>
-              <CountUp end={500} duration={2.2} suffix="+" />
-            </h2>
-            <p style={{ color: colors.softText }}>Exams</p>
-          </div>
+          <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-center gap-4 mb-20">
+            <button
+              onClick={() => navigate("/exams")}
+              className="group relative px-8 py-4 rounded-2xl text-white font-bold text-lg shadow-xl shadow-green-200 transition-all hover:scale-105 active:scale-95 overflow-hidden"
+              style={{ backgroundColor: colors.green }}
+            >
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              <span className="relative flex items-center justify-center gap-2">
+                Start Free Exam <FiArrowRight className="group-hover:translate-x-1 transition-transform" />
+              </span>
+            </button>
+            <button
+              onClick={() => navigate("/courses")}
+              className="px-8 py-4 rounded-2xl font-bold text-lg border-2 transition-all hover:bg-gray-50 active:scale-95"
+              style={{ borderColor: colors.borderGray, color: colors.darkText }}
+            >
+              Browse Subjects
+            </button>
+          </motion.div>
 
-          {/* Success Rate */}
-          <div>
-            <h2 className="text-3xl font-bold" style={{ color: colors.green }}>
-              <CountUp end={95} duration={2.2} suffix="%" />
-            </h2>
-            <p style={{ color: colors.softText }}>Success Rate</p>
-          </div>
-        </div>
+          {/* FLOATING STATS */}
+          <motion.div 
+            variants={itemVariants}
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 max-w-4xl mx-auto p-4 rounded-3xl bg-white/40 backdrop-blur-xl border border-white/60 shadow-2xl"
+          >
+            {[
+              { label: "Active Students", value: 12000, suffix: "+", color: "text-blue-600" },
+              { label: "Total Exams", value: 850, suffix: "+", color: "text-green-600" },
+              { label: "Success Rate", value: 98, suffix: "%", color: "text-emerald-600" },
+              { label: "Expert Tutors", value: 240, suffix: "+", color: "text-indigo-600" }
+            ].map((stat, i) => (
+              <div key={i} className="p-4 text-center">
+                <div className={`text-2xl md:text-3xl font-black mb-1 ${stat.color}`}>
+                  <CountUp end={stat.value} duration={2.5} suffix={stat.suffix} separator="," />
+                </div>
+                <div className="text-xs md:text-sm font-semibold uppercase tracking-wider opacity-60">
+                  {stat.label}
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        </motion.div>
       </section>
 
-      {/* EXAMS */}
-      <section
-        id="exams"
-        className="py-20 px-4 backdrop-blur-xl rounded-xl mt-12"
-      >
-        <div className="text-center mb-12">
-          <span
-            className="inline-block px-5 py-2 rounded-full text-sm font-medium mb-4"
-            style={{ background: "#DFF8E6", color: colors.green }}
-          >
-            Featured Exams
-          </span>
-
-          <h2 className="text-4xl font-bold" style={{ color: colors.darkText }}>
-            Test Your Knowledge
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 max-w-7xl mx-auto">
-          {exams.map((exam, index) => (
-            <div
-              key={index}
-              className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-md hover:shadow-lg transition border"
-              style={{ borderColor: colors.borderGray }}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <div className="p-3 rounded-xl bg-[#EAFCEF]">{exam.icon}</div>
-                <span
-                  className="px-3 py-1 rounded-full text-sm font-medium bg-[#EAFCEF]"
-                  style={{ color: colors.green }}
-                >
-                  {exam.level}
-                </span>
-              </div>
-
-              <h3
-                className="text-xl font-semibold mb-3"
-                style={{ color: colors.darkText }}
-              >
-                {exam.title}
-              </h3>
-
-              <p className="text-gray-600 text-sm leading-relaxed mb-5">
-                {exam.description}
+      {/* FEATURED EXAMS */}
+      <section className="py-24 px-4 bg-linear-to-b from-transparent to-gray-50/50">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
+            <div className="max-w-2xl">
+              <h2 className="text-3xl md:text-5xl font-bold mb-4" style={{ color: colors.darkText }}>
+                Curated for Success
+              </h2>
+              <p className="text-lg" style={{ color: colors.softText }}>
+                Our most popular examinations, designed to challenge and grow your expertise in key industries.
               </p>
-
-              <div
-                className="h-px w-full mb-5"
-                style={{ background: colors.borderGray }}
-              />
-
-              <div className="grid grid-cols-3 text-center text-sm text-gray-700 mb-6">
-                <div>
-                  <strong>{exam.duration}</strong>
-                  <p className="text-xs text-gray-500">Duration</p>
-                </div>
-                <div>
-                  <strong>{exam.questions}</strong>
-                  <p className="text-xs text-gray-500">Questions</p>
-                </div>
-                <div>
-                  <strong>{exam.enrolled}</strong>
-                  <p className="text-xs text-gray-500">Enrolled</p>
-                </div>
-              </div>
-
-              <button
-                className="w-full py-2 rounded-lg text-white"
-                style={{ background: colors.green }}
-                onClick={() => navigate(`/exams`)}
-              >
-                Take Exam
-              </button>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* FEATURES */}
-      <section id="features" className="py-20 px-4">
-        <div className="text-center mb-12">
-          <span
-            className="inline-block px-5 py-2 rounded-full text-sm font-medium mb-4"
-            style={{ background: "#DFF8E6", color: colors.green }}
-          >
-            Why Choose Us
-          </span>
-          <h2 className="text-4xl font-bold" style={{ color: colors.darkText }}>
-            Features That Make Learning Better
-          </h2>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
-          {features.map((feature, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] border"
-              style={{ borderColor: colors.borderGray }}
+            <button 
+              onClick={() => navigate("/exams")}
+              className="flex items-center gap-2 font-bold transition-all hover:gap-3"
+              style={{ color: colors.green }}
             >
-              <div className="flex justify-center mb-4">
-                <div className="p-4 rounded-2xl bg-[#EAFCEF]">
-                  {feature.icon}
+              View All Exams <FiArrowRight />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {exams.map((exam, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="group relative bg-white rounded-[2rem] p-8 shadow-sm hover:shadow-2xl transition-all duration-500 border border-gray-100 hover:border-green-200"
+              >
+                {exam.popular && (
+                  <div className="absolute top-6 right-6 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest shadow-xs">
+                    Popular
+                  </div>
+                )}
+                
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110 group-hover:rotate-3" style={{ backgroundColor: "#EAFCEF", color: colors.green }}>
+                  {exam.icon}
                 </div>
-              </div>
-              <h3 className="text-xl font-semibold text-center mb-3" style={{ color: colors.darkText }}>
-                {feature.title}
-              </h3>
-              <p className="text-gray-600 text-sm text-center leading-relaxed">
-                {feature.description}
-              </p>
-            </motion.div>
-          ))}
+
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-green-600 px-2 py-0.5 rounded-md bg-green-50">
+                    {exam.level}
+                  </span>
+                </div>
+
+                <h3 className="text-2xl font-bold mb-4 group-hover:text-green-700 transition-colors" style={{ color: colors.darkText }}>
+                  {exam.title}
+                </h3>
+                
+                <p className="text-gray-500 mb-8 leading-relaxed">
+                  {exam.description}
+                </p>
+
+                <div className="grid grid-cols-2 gap-4 mb-8">
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
+                    <FiClock className="text-gray-400" />
+                    <div>
+                      <div className="text-xs font-bold text-gray-400 uppercase tracking-tighter">Time</div>
+                      <div className="text-sm font-bold text-gray-700">{exam.duration}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
+                    <FiFileText className="text-gray-400" />
+                    <div>
+                      <div className="text-xs font-bold text-gray-400 uppercase tracking-tighter">Items</div>
+                      <div className="text-sm font-bold text-gray-700">{exam.questions} Qs</div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => navigate("/exams")}
+                  className="w-full py-4 rounded-xl font-bold text-white transition-all hover:brightness-110 active:scale-95 shadow-lg shadow-green-100"
+                  style={{ backgroundColor: colors.green }}
+                >
+                  Take This Exam
+                </button>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* HOW IT WORKS */}
-      <section id="how-it-works" className="py-20 px-4" style={{ background: "rgb(248, 255, 252)" }}>
-        <div className="text-center mb-12">
-          <span
-            className="inline-block px-5 py-2 rounded-full text-sm font-medium mb-4"
-            style={{ background: "#DFF8E6", color: colors.green }}
-          >
-            Simple Process
-          </span>
-          <h2 className="text-4xl font-bold" style={{ color: colors.darkText }}>
-            How It Works
-          </h2>
+      <section className="py-24 px-4 overflow-hidden">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-20">
+            <h2 className="text-3xl md:text-5xl font-extrabold mb-6">How It Works</h2>
+            <div className="w-20 h-1.5 bg-green-500 mx-auto rounded-full"></div>
+          </div>
+
+          <div className="relative group">
+            {/* Connector Line */}
+            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-100 -translate-y-1/2 hidden md:block">
+              <motion.div 
+                initial={{ width: 0 }}
+                whileInView={{ width: "100%" }}
+                transition={{ duration: 1.5, ease: "easeInOut" }}
+                className="h-full bg-linear-to-r from-green-500 to-emerald-300"
+              ></motion.div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
+              {howItWorks.map((step, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  whileHover={{ y: -10 }}
+                  className="relative flex flex-col items-center bg-white p-6"
+                >
+                  <div className="w-20 h-20 rounded-3xl bg-white border-2 border-green-100 flex items-center justify-center text-green-600 mb-8 shadow-xl group-hover:border-green-400 transition-colors z-10 relative">
+                    {step.icon}
+                    <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-green-600 text-white text-[10px] font-black flex items-center justify-center border-4 border-white">
+                      {step.step}
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold mb-4">{step.title}</h3>
+                  <p className="text-center text-gray-500 leading-relaxed max-w-[200px]">
+                    {step.description}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {howItWorks.map((step, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.2 }}
-              className="text-center"
-            >
-              <div className="relative mb-6">
-                <div className="w-20 h-20 mx-auto rounded-full bg-white shadow-lg flex items-center justify-center mb-4">
-                  {step.icon}
-                </div>
-                <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full text-white font-bold text-sm flex items-center justify-center" style={{ background: colors.green }}>
-                  {step.step}
-                </div>
+      </section>
+
+      {/* WHY CHOOSE US - FEATURES */}
+      <section className="py-24 px-4 px-4" style={{ backgroundColor: "#F9FAF9" }}>
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <h2 className="text-4xl md:text-5xl font-black mb-10 leading-tight" style={{ color: colors.darkText }}>
+                Built for the <br /> 
+                <span className="text-green-600">Next Generation</span> of <br />
+                Academics
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                {features.map((feature, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="shrink-0 w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center text-green-500 border border-green-50">
+                      {feature.icon}
+                    </div>
+                    <div>
+                      <h4 className="font-bold mb-1 text-lg">{feature.title}</h4>
+                      <p className="text-sm text-gray-400 leading-relaxed">{feature.description}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <h3 className="text-xl font-semibold mb-3" style={{ color: colors.darkText }}>
-                {step.title}
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                {step.description}
-              </p>
-              {index < howItWorks.length - 1 && (
-                <div className="hidden md:block absolute top-10 left-full w-full h-0.5 bg-linear-to-r from-green-400 to-transparent" style={{ transform: 'translateX(50%)' }} />
-              )}
-            </motion.div>
-          ))}
+            </div>
+            
+            <div className="relative">
+              <div className="aspect-square relative rounded-[3rem] overflow-hidden shadow-2xl">
+                 <img 
+                  src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" 
+                  alt="Studying" 
+                  className="w-full h-full object-cover"
+                 />
+                 <div className="absolute inset-0 bg-linear-to-t from-green-900/40 to-transparent"></div>
+              </div>
+              {/* Floating Element */}
+              <motion.div 
+                animate={{ y: [0, -20, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute -bottom-8 -left-8 bg-white p-6 rounded-3xl shadow-2xl border border-gray-100 max-w-[240px]"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="p-3 bg-green-100 rounded-2xl text-green-600">
+                    <FiCheckCircle size={24} />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-black text-green-600">100%</div>
+                    <div className="text-[10px] font-bold text-gray-400 uppercase">Secure Platform</div>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 font-medium">Your data and results are protected with enterprise-grade encryption.</p>
+              </motion.div>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* TESTIMONIALS */}
-      <section id="testimonials" className="py-20 px-4">
-        <div className="text-center mb-12">
-          <span
-            className="inline-block px-5 py-2 rounded-full text-sm font-medium mb-4"
-            style={{ background: "#DFF8E6", color: colors.green }}
-          >
-            Student Success
-          </span>
-          <h2 className="text-4xl font-bold" style={{ color: colors.darkText }}>
-            What Our Students Say
-          </h2>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
-          {testimonials.map((testimonial, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-md hover:shadow-lg transition-all duration-300 border"
-              style={{ borderColor: colors.borderGray }}
-            >
-              <div className="flex mb-4">
-                {[...Array(testimonial.rating)].map((_, i) => (
-                  <FiStar key={i} size={20} className="text-yellow-400 fill-current" />
-                ))}
-              </div>
-              <p className="text-gray-700 mb-6 italic">"{testimonial.content}"</p>
-              <div className="flex items-center">
-                <div className="w-12 h-12 rounded-full bg-linear-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-semibold mr-4">
-                  {testimonial.name.charAt(0)}
+      <section className="py-24 px-4 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+             <h2 className="text-3xl md:text-5xl font-extrabold mb-4">Loved by Students</h2>
+             <p className="text-gray-400 tracking-widest uppercase text-sm font-bold">Real feedback from real users</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {testimonials.map((t, i) => (
+              <motion.div 
+                key={i}
+                whileHover={{ scale: 1.02 }}
+                className="p-8 rounded-[2rem] bg-gray-50 border border-gray-100 relative overflow-hidden"
+              >
+                <div className="flex gap-1 mb-6">
+                  {[...Array(5)].map((_, j) => <FiStar key={j} className="text-amber-400 fill-amber-400" size={16} />)}
                 </div>
-                <div>
-                  <h4 className="font-semibold" style={{ color: colors.darkText }}>{testimonial.name}</h4>
-                  <p className="text-sm text-gray-600">{testimonial.role}</p>
+                <p className="text-lg text-gray-700 italic mb-8 relative z-10">"{t.content}"</p>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center font-black text-white shadow-lg" style={{ backgroundColor: t.color }}>
+                    {t.initials}
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-900">{t.name}</div>
+                    <div className="text-sm text-gray-400">{t.role}</div>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ACHIEVEMENTS */}
-      <section id="achievements" className="py-20 px-4" style={{ background: "rgb(232, 255, 241)" }}>
-        <div className="text-center mb-12">
-          <span
-            className="inline-block px-5 py-2 rounded-full text-sm font-medium mb-4"
-            style={{ background: "#DFF8E6", color: colors.green }}
-          >
-            Our Impact
-          </span>
-          <h2 className="text-4xl font-bold" style={{ color: colors.darkText }}>
-            Achievements & Milestones
-          </h2>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
-          {achievements.map((achievement, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="text-center bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-md border"
-              style={{ borderColor: colors.borderGray }}
-            >
-              <div className="text-4xl font-bold mb-2" style={{ color: colors.green }}>
-                <CountUp end={parseInt(achievement.count)} duration={2} suffix={achievement.count.includes('+') ? '+' : ''} />
-              </div>
-              <h3 className="text-xl font-semibold mb-2" style={{ color: colors.darkText }}>
-                {achievement.title}
-              </h3>
-              <p className="text-sm text-gray-600">{achievement.description}</p>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section id="faq" className="py-20 px-4">
-        <div className="text-center mb-12">
-          <span
-            className="inline-block px-5 py-2 rounded-full text-sm font-medium mb-4"
-            style={{ background: "#DFF8E6", color: colors.green }}
-          >
-            Got Questions?
-          </span>
-          <h2 className="text-4xl font-bold" style={{ color: colors.darkText }}>
-            Frequently Asked Questions
-          </h2>
-        </div>
-        
+      {/* FAQ SECTION */}
+      <section className="py-24 px-4 bg-gray-50/50">
         <div className="max-w-3xl mx-auto">
-          {faqs.map((faq, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-md mb-4 border"
-              style={{ borderColor: colors.borderGray }}
-            >
-              <div className="flex items-start">
-                <div className="mr-4 mt-1">
-                  <FiHelpCircle size={20} color={colors.green} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold mb-2" style={{ color: colors.darkText }}>
-                    {faq.question}
-                  </h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    {faq.answer}
-                  </p>
-                </div>
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-black mb-4">FAQ</h2>
+            <p className="text-gray-500">Everything you need to know about our exams.</p>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, i) => (
+              <div 
+                key={i} 
+                className="bg-white rounded-2xl border border-gray-100 overflow-hidden transition-all duration-300 shadow-sm hover:shadow-md"
+              >
+                <button
+                  onClick={() => setActiveFaq(activeFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between p-6 text-left"
+                >
+                  <span className="font-bold text-lg text-gray-800">{faq.question}</span>
+                  <FiChevronDown className={`transition-transform duration-300 text-green-500 ${activeFaq === i ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {activeFaq === i && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="border-t border-gray-50"
+                    >
+                      <div className="p-6 text-gray-500 leading-relaxed bg-gray-50/30">
+                        {faq.answer}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            </motion.div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section
-        className="py-20 px-4 bg-linear-to-b from-[#E8FFF1] to-white"
-        
-      >
-        <div
-          className="max-w-5xl mx-auto text-center rounded-2xl p-10 md:p-16"
-          style={{ background: colors.green }}
+      {/* CTA SECTION */}
+      <section className="py-20 px-4">
+        <div 
+          className="max-w-6xl mx-auto rounded-[3rem] p-12 md:p-20 relative overflow-hidden shadow-2xl shadow-green-200"
+          style={{ backgroundColor: colors.green }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Ready to Test Yourself?
-          </h2>
+          {/* Decorative shapes */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
 
-          <p className="max-w-2xl mx-auto text-white/90 text-base md:text-lg mb-8">
-            Take our exams and get instant feedback to identify your strengths
-            and areas for improvement.
-          </p>
-          <NavLink to="/exams">
-            <button className="bg-white text-green-700 px-6 py-3 rounded-lg font-medium transition-all duration-300 hover:shadow-lg hover:scale-[1.05]">
-              Browse All Exams
-            </button>
-          </NavLink>
+          <div className="relative z-10 text-center text-white">
+            <h2 className="text-4xl md:text-6xl font-black mb-8 leading-tight">
+              Ready to Push Your <br /> Limits Today?
+            </h2>
+            <p className="text-xl text-green-50 mb-12 max-w-2xl mx-auto opacity-90">
+              Join thousands of high-achievers. Unlock your potential with our 
+              comprehensive examination suite.
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center gap-4">
+              <button
+                onClick={() => navigate("/register")}
+                className="px-10 py-5 bg-white text-green-700 rounded-2xl font-black text-xl shadow-xl transition-all hover:scale-105 active:scale-95"
+              >
+                Get Started for Free
+              </button>
+              <button
+                className="px-10 py-5 bg-green-600 text-white rounded-2xl font-black text-xl border border-white/20 transition-all hover:bg-green-500 active:scale-95"
+              >
+                Contact Support
+              </button>
+            </div>
+          </div>
         </div>
       </section>
+
+      {/* FOOTER MINI */}
+      <footer className="py-12 text-center text-gray-400 text-sm font-medium border-t border-gray-100">
+        <p>&copy; {new Date().getFullYear()} ExamHub. All rights reserved. Designed for Excellence.</p>
+      </footer>
     </div>
   );
 };

@@ -12,7 +12,9 @@ import {
 
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { motion, type Variants } from "framer-motion";
 import type { RootState } from "../store";
+import { colors } from "../utils/colortheme";
 import {
   useStudentMe,
   useStudentProfileImageUpdate,
@@ -28,7 +30,7 @@ type User = {
   DateofBirth: string;
   Phone: string;
   gender: "Male" | "Female" | "Other";
-  avatar?: string | null; // local object URL or remote URL
+  avatar?: string | null;
 };
 
 const initialUser: User = {
@@ -40,10 +42,7 @@ const initialUser: User = {
   avatar: null,
 };
 
-// subjects UI removed per request
-
 const Profile: React.FC = () => {
-  // trigger fetching current user and syncing Redux auth state
   const { data } = useStudentMe();
   const profileUpdate = useStudentProfileUpdate();
   const profileImageUpdate = useStudentProfileImageUpdate();
@@ -51,34 +50,43 @@ const Profile: React.FC = () => {
   const profileImageDelete = useStudentProfileImageDelete();
   const selfieVideoDelete = useStudentSelfieVideoDelete();
   const auth = useSelector((state: RootState) => state.auth);
-  const hasTypingProfile = auth.hasTypingProfile || false;
   const [editing, setEditing] = useState(false);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
 
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
-  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(
-    null,
-  );
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
   const [user, setUser] = useState<User>(initialUser);
-
-  // removed subjects state per request
-
-  // Local temp state for edits so "Save" can be applied or canceled
   const [draft, setDraft] = useState<User>(user);
 
-  // Quick Stats integrated with Redux auth
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { duration: 0.5, ease: "easeOut" } 
+    }
+  };
+
   const stats = [
-    { label: "Notifications", value: auth.unreadNotificationCount },
-    { label: "Account", value: auth.isActive ? "Active" : "Inactive" },
+    { label: "Notifications", value: auth.unreadNotificationCount, icon: "🔔" },
+    { label: "Account", value: auth.isActive ? "Active" : "Inactive", icon: "🛡️" },
     {
       label: "Member Since",
       value: new Date(auth.createdAt).toLocaleDateString(),
+      icon: "📅"
     },
-    { label: "Gender", value: auth.gender ? auth.gender : "-" },
+    { label: "Gender", value: auth.gender ? auth.gender : "-", icon: "👤" },
   ];
 
   useEffect(() => {
-    // Map Redux auth -> local user shape
     const genderDisplay = auth.gender
       ? ((auth.gender.charAt(0).toUpperCase() +
           auth.gender.slice(1)) as User["gender"])
@@ -103,13 +111,11 @@ const Profile: React.FC = () => {
   ]);
 
   useEffect(() => {
-    // keep draft in sync when user updates outside edit mode
     setDraft(user);
   }, [user]);
 
   const navigate = useNavigate();
 
-  // cleanup object URLs on unmount
   useEffect(() => {
     return () => {
       if (user.avatar && user.avatar.startsWith("blob:")) {
@@ -119,14 +125,12 @@ const Profile: React.FC = () => {
         URL.revokeObjectURL(videoPreview);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user.avatar, videoPreview]);
 
   const handleRetakeTypingTest = () => {
     navigate("/typing-profile-setup");
   };
 
-  // Handlers
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
@@ -136,7 +140,6 @@ const Profile: React.FC = () => {
 
   const handleSave = () => {
     setUser((prev) => {
-      // revoke previous avatar object URL if replacing
       if (
         prev.avatar &&
         prev.avatar.startsWith("blob:") &&
@@ -147,7 +150,6 @@ const Profile: React.FC = () => {
       return { ...draft };
     });
     setEditing(false);
-    // Persist profile to backend
     profileUpdate.mutate({
       fullName: draft.name,
       phoneNumber: draft.Phone,
@@ -164,7 +166,6 @@ const Profile: React.FC = () => {
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // revoke previous draft avatar if blob
     if (draft.avatar && draft.avatar.startsWith("blob:")) {
       URL.revokeObjectURL(draft.avatar);
     }
@@ -212,16 +213,13 @@ const Profile: React.FC = () => {
     }
     const objUrl = URL.createObjectURL(file);
     setVideoPreview(objUrl);
-    // filename not displayed anymore
     setSelectedVideoFile(file);
   };
 
-  // support drag & drop for video
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("video/")) return;
+    if (!file || !file.type.startsWith("video/")) return;
     if (videoPreview && videoPreview.startsWith("blob:")) {
       URL.revokeObjectURL(videoPreview);
     }
@@ -230,16 +228,13 @@ const Profile: React.FC = () => {
     setSelectedVideoFile(file);
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-  };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => e.preventDefault();
 
   const removeVideo = () => {
     if (videoPreview && videoPreview.startsWith("blob:")) {
       URL.revokeObjectURL(videoPreview);
     }
     setVideoPreview(null);
-    // filename not displayed anymore
     setSelectedVideoFile(null);
   };
 
@@ -267,341 +262,319 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="p-4 md:p-8 bg-transparent flex justify-center">
-      <div className="max-w-6xl w-full grid grid-cols-1 gap-6 md:grid-cols-12">
-        {/* LEFT SIDEBAR (avatar + quick actions + stats) */}
-        <aside className="md:col-span-4 col-span-1 space-y-6">
-          {/* Avatar Card */}
-          <div className="bg-white rounded-2xl shadow p-6 flex flex-col items-center relative">
-            <div className="relative">
-              {/* Clickable avatar circle */}
-              <label htmlFor="avatarInput" className="block cursor-pointer">
-                <div className="w-36 h-36 rounded-full overflow-hidden flex items-center justify-center bg-gray-100 hover:ring-2 hover:ring-green-500 transition">
-                  {draft.avatar ? (
-                    <img
-                      src={draft.avatar}
-                      alt="avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : auth.profileImage ? (
-                    <img
-                      src={auth.profileImage}
-                      alt="avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="text-gray-400">
-                      <User2 size={48} />
-                    </div>
-                  )}
-                </div>
-                <input
-                  id="avatarInput"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
-                />
-              </label>
+    <div className="relative min-h-screen bg-white overflow-hidden font-sans selection:bg-green-100 selection:text-green-900 py-12 px-4 md:px-8">
+      {/* Background Blobs */}
+      <div className="absolute inset-0 overflow-hidden -z-10 pointer-events-none">
+        <motion.div
+          animate={{
+            x: [0, 40, 0],
+            y: [0, 60, 0],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[10%] left-[-5%] w-[400px] h-[400px] rounded-full blur-[100px] opacity-10"
+          style={{ backgroundColor: colors.green }}
+        ></motion.div>
+        <motion.div
+          animate={{
+            x: [0, -30, 0],
+            y: [0, 50, 0],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{ duration: 22, repeat: Infinity, ease: "linear" }}
+          className="absolute bottom-[20%] right-[-5%] w-[500px] h-[500px] rounded-full blur-[120px] opacity-10"
+          style={{ backgroundColor: "#DFF8E6" }}
+        ></motion.div>
+      </div>
 
-              {/* Clear preview X (only clears preview, not existing image) */}
-              {selectedAvatarFile && draft.avatar && (
-                <button
-                  onClick={clearAvatarPreview}
-                  aria-label="Clear preview"
-                  className="absolute -top-2 -right-2 bg-white border shadow-sm rounded-full p-1.5 hover:bg-red-50"
-                >
-                  <X size={14} className="text-red-600" />
-                </button>
-              )}
-            </div>
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+        className="max-w-7xl mx-auto"
+      >
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+          {/* LEFT SIDEBAR */}
+          <motion.aside variants={itemVariants} className="lg:col-span-4 space-y-6">
+            {/* Avatar Card */}
+            <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] border border-white/60 shadow-xl p-8 flex flex-col items-center relative overflow-hidden group">
+              <div className="absolute inset-0 bg-linear-to-b from-green-50/30 to-transparent pointer-events-none"></div>
+              
+              <div className="relative z-10">
+                <label htmlFor="avatarInput" className="block cursor-pointer">
+                  <div className="w-40 h-40 rounded-full p-1 border-4 border-green-100/50 bg-white shadow-inner overflow-hidden flex items-center justify-center hover:border-green-400 transition-all duration-300 transform group-hover:scale-105">
+                    {draft.avatar || auth.profileImage ? (
+                      <img
+                        src={(draft.avatar || auth.profileImage) as string}
+                        alt="avatar"
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    ) : (
+                      <div className="text-green-200">
+                        <User2 size={80} strokeWidth={1} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute bottom-2 right-2 p-2 bg-green-500 text-white rounded-full shadow-lg transform translate-x-2 translate-y-2 hover:scale-110 transition-transform">
+                    <Pencil size={18} />
+                  </div>
+                  <input
+                    id="avatarInput"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                  />
+                </label>
 
-            <h2 className="mt-4 text-lg font-semibold text-gray-800">
-              {user.name || auth.fullName}
-            </h2>
-            <p className="text-sm text-gray-500">Student</p>
-
-            <div className="mt-4 w-full flex flex-col gap-2">
-              {selectedAvatarFile && (
-                <button
-                  onClick={uploadProfileImage}
-                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-green-600 text-white px-4 py-2 text-sm font-medium hover:bg-green-700"
-                >
-                  <Upload size={14} />
-                  {profileImageUpdate.isPending ? "Uploading..." : "Upload"}
-                </button>
-              )}
-
-              {(auth.profileImage || draft.avatar) && !selectedAvatarFile && (
-                <button
-                  onClick={deleteProfileImage}
-                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <Trash2 size={14} />{" "}
-                  {profileImageDelete.isPending ? "Removing..." : "Remove"}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="bg-white rounded-2xl shadow p-4">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">
-              Quick Stats
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              {stats.map((s) => (
-                <div
-                  key={s.label}
-                  className="bg-gray-50 rounded-lg p-3 flex flex-col items-start"
-                >
-                  <span className="text-xs text-gray-500">{s.label}</span>
-                  <span className="mt-2 text-lg font-semibold text-gray-800">
-                    {String(s.value)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Typing Profile Button */}
-          <div className="bg-white rounded-2xl shadow p-4">
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">
-              Typing Profile
-            </h3>
-            <button
-              onClick={handleRetakeTypingTest}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-[#1e6b32] transition-colors"
-            >
-              <Keyboard size={18} />
-              {data?.hasTypingProfile
-                ? "Update Typing Profile"
-                : "Setup Typing Profile"}
-            </button>
-            <p className="text-xs text-gray-500 mt-2 text-center">
-              {hasTypingProfile
-                ? "Update your typing pattern for enhanced security"
-                : "Set up your typing pattern for identity verification"}
-            </p>
-          </div>
-        </aside>
-
-        {/* MAIN CONTENT */}
-        <main className="md:col-span-8 col-span-1 space-y-6">
-          {/* Profile Info Card */}
-          <div className="bg-white rounded-2xl shadow p-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-800">
-                  Profile Information
-                </h3>
-                <p className="text-sm text-gray-500">
-                  Keep your profile up to date
-                </p>
+                {selectedAvatarFile && draft.avatar && (
+                  <button
+                    onClick={clearAvatarPreview}
+                    className="absolute -top-4 -right-4 bg-white border border-gray-100 shadow-xl rounded-full p-2 hover:bg-red-50 text-red-500 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="mt-8 text-center relative z-10">
+                <h2 className="text-2xl font-black" style={{ color: colors.darkText }}>
+                  {user.name || auth.fullName}
+                </h2>
+                <div className="inline-block mt-2 px-4 py-1 rounded-full bg-green-50 text-green-600 text-xs font-black uppercase tracking-widest">
+                  Verified Student
+                </div>
+              </div>
+
+              <div className="mt-8 w-full flex flex-col gap-3 relative z-10">
+                {selectedAvatarFile && (
+                  <button
+                    onClick={uploadProfileImage}
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-green-600 text-white px-6 py-3 font-bold hover:bg-green-700 shadow-lg shadow-green-100 transition-all active:scale-95"
+                  >
+                    <Upload size={18} />
+                    {profileImageUpdate.isPending ? "Uploading..." : "Save Photo"}
+                  </button>
+                )}
+
+                {(auth.profileImage || draft.avatar) && !selectedAvatarFile && (
+                  <button
+                    onClick={deleteProfileImage}
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl border border-gray-100 bg-white/50 text-gray-500 px-6 py-3 font-bold hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all active:scale-95"
+                  >
+                    <Trash2 size={18} /> 
+                    {profileImageDelete.isPending ? "Removing..." : "Remove Photo"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] border border-white/60 shadow-xl p-8">
+              <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6">Quick Outlook</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {stats.map((s) => (
+                  <div
+                    key={s.label}
+                    className="bg-gray-50/50 rounded-3xl p-4 border border-gray-100/50 hover:border-green-200 transition-colors"
+                  >
+                    <div className="text-xl mb-2">{s.icon}</div>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{s.label}</span>
+                    <div className="mt-1 text-sm font-bold text-gray-700 truncate">
+                      {String(s.value)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Typing Profile */}
+            <div className="bg-green-600 rounded-[2.5rem] shadow-xl p-8 text-white relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+              <div className="relative z-10">
+                <h3 className="text-lg font-black mb-4">Typing Identity</h3>
+                <p className="text-sm text-green-50/80 mb-6 leading-relaxed">
+                  Enhance your account security by maintaining a unique behavioral typing profile.
+                </p>
+                <button
+                  onClick={handleRetakeTypingTest}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-white text-green-700 rounded-2xl font-black hover:scale-105 active:scale-95 transition-all shadow-xl"
+                >
+                  <Keyboard size={18} />
+                  {data?.hasTypingProfile ? "Update Profile" : "Setup Now"}
+                </button>
+              </div>
+            </div>
+          </motion.aside>
+
+          {/* MAIN CONTENT */}
+          <motion.main variants={itemVariants} className="lg:col-span-8 space-y-8">
+            {/* Profile Info Form */}
+            <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] border border-white/60 shadow-xl p-8 md:p-10 relative overflow-hidden">
+              <div className="flex items-center justify-between mb-10">
+                <div>
+                  <h3 className="text-2xl font-black" style={{ color: colors.darkText }}>
+                    Personal Details
+                  </h3>
+                  <p className="text-gray-400 text-sm font-medium mt-1">Manage your basic identification info</p>
+                </div>
+
                 {!editing ? (
                   <button
                     onClick={() => setEditing(true)}
-                    className="inline-flex items-center gap-2 rounded-lg bg-green-600 text-white px-4 py-2 hover:bg-green-700"
+                    className="flex items-center gap-2 px-6 py-3 bg-gray-50 text-gray-700 rounded-2xl font-bold hover:bg-green-50 hover:text-green-600 transition-all border border-gray-100"
                   >
-                    <Pencil size={16} /> Edit
+                    <Pencil size={16} /> Edit Details
                   </button>
                 ) : (
-                  <>
+                  <div className="flex gap-3">
                     <button
                       onClick={handleSave}
-                      className="inline-flex items-center gap-2 rounded-lg bg-green-600 text-white px-4 py-2 hover:bg-green-700"
+                      className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all shadow-lg"
                     >
                       <Check size={16} /> Save
                     </button>
                     <button
                       onClick={handleCancel}
-                      className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex items-center gap-2 px-6 py-3 bg-white text-gray-500 rounded-2xl font-bold hover:bg-gray-50 transition-all border border-gray-200"
                     >
                       Cancel
                     </button>
-                  </>
+                  </div>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
+                {[
+                  { label: "Full Name", name: "name", value: draft.name, type: "text", placeholder: "e.g. John Doe" },
+                  { label: "Email Address", name: "email", value: draft.email, type: "email", placeholder: "john@example.com", disabled: true },
+                  { label: "Date of Birth", name: "DateofBirth", value: draft.DateofBirth, type: "date" },
+                  { label: "Phone Number", name: "Phone", value: draft.Phone, type: "tel", placeholder: "+1234567890" },
+                ].map((field) => (
+                  <div key={field.name}>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4 mb-2 block">
+                      {field.label}
+                    </label>
+                    <div className="relative">
+                      <input
+                        name={field.name}
+                        type={field.type}
+                        value={field.value}
+                        onChange={handleChange}
+                        disabled={!editing || field.disabled}
+                        placeholder={field.placeholder}
+                        className={`w-full px-6 py-4 rounded-2xl border transition-all duration-300 font-bold ${
+                          editing && !field.disabled
+                            ? "bg-white border-green-200 focus:border-green-500 focus:ring-4 focus:ring-green-100 outline-hidden"
+                            : "bg-gray-50/50 border-gray-100 text-gray-500 cursor-not-allowed"
+                        }`}
+                      />
+                      {!editing && <div className="absolute inset-0 z-10"></div>}
+                    </div>
+                  </div>
+                ))}
+
+                <div className="md:col-span-2">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4 mb-2 block">
+                    Gender Identity
+                  </label>
+                  <div className="flex gap-4">
+                    {["Male", "Female", "Other"].map((option) => (
+                      <button
+                        key={option}
+                        disabled={!editing}
+                        onClick={() => setDraft(prev => ({ ...prev, gender: option as User["gender"] }))}
+                        className={`flex-1 py-4 rounded-2xl border font-bold transition-all ${
+                          draft.gender === option
+                            ? "bg-green-50 border-green-500 text-green-700"
+                            : "bg-white border-gray-100 text-gray-400 hover:border-gray-200"
+                        } ${!editing && "opacity-60 cursor-not-allowed"}`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Info */}
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
-              {!editing ? (
-                <>
-                  <div>
-                    <p className="text-sm text-gray-500">Full Name</p>
-                    <p className="font-medium text-gray-800">{user.name}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-500">Email</p>
-                    <p className="font-medium text-gray-800">{user.email}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-500">Date of Birth</p>
-                    <p className="font-medium text-gray-800">
-                      {user.DateofBirth}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-500">Phone</p>
-                    <p className="font-medium text-gray-800">{user.Phone}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-500">Gender</p>
-                    <p className="font-medium text-gray-800">{user.gender}</p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label className="text-xs text-gray-500">Full Name</label>
-                    <input
-                      name="name"
-                      value={draft.name}
-                      onChange={handleChange}
-                      className="mt-1 w-full border rounded-lg p-2 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">Email</label>
-                    <input
-                      name="email"
-                      value={draft.email}
-                      onChange={handleChange}
-                      className="mt-1 w-full border rounded-lg p-2 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">
-                      Date of Birth
-                    </label>
-                    <input
-                      name="DateofBirth"
-                      type="date"
-                      value={draft.DateofBirth}
-                      onChange={handleChange}
-                      className="mt-1 w-full border rounded-lg p-2 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">Phone</label>
-                    <input
-                      name="Phone"
-                      value={draft.Phone}
-                      onChange={handleChange}
-                      className="mt-1 w-full border rounded-lg p-2 text-sm"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="text-xs text-gray-500">Gender</label>
-                    <select
-                      name="gender"
-                      value={draft.gender}
-                      onChange={handleChange}
-                      className="mt-1 w-full border rounded-lg p-2 text-sm"
-                    >
-                      <option>Male</option>
-                      <option>Female</option>
-                      <option>Other</option>
-                    </select>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Selfie Verification Video Section */}
-          <div className="bg-white rounded-2xl shadow p-6">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-start justify-between">
+            {/* Video Verification Section */}
+            <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] border border-white/60 shadow-xl p-8 md:p-10">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                 <div>
-                  <h3 className="text-xl font-semibold text-gray-800">
-                    Selfie Verification
+                  <h3 className="text-2xl font-black" style={{ color: colors.darkText }}>
+                    Biometric Verification
                   </h3>
-                  <p className="text-sm text-gray-500">
-                    Upload a short video for identity verification
-                  </p>
+                  <p className="text-gray-400 text-sm font-medium mt-1">Video-based self-identification</p>
                 </div>
 
-                {videoPreview && (
-                  <button
-                    onClick={removeVideo}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 size={14} /> Remove Video
-                  </button>
-                )}
-                {!videoPreview && auth.selfieVideo && (
-                  <button
-                    onClick={deleteSelfieVideo}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 size={14} />
-                    {selfieVideoDelete.isPending
-                      ? "Deleting..."
-                      : "Delete Saved Video"}
-                  </button>
-                )}
+                <div className="flex gap-3">
+                  {videoPreview && (
+                    <button
+                      onClick={removeVideo}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-rose-50 text-rose-600 rounded-xl font-bold hover:bg-rose-100 transition-all border border-rose-100"
+                    >
+                      <Trash2 size={16} /> Discard Preview
+                    </button>
+                  )}
+                  {!videoPreview && auth.selfieVideo && (
+                    <button
+                      onClick={deleteSelfieVideo}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-rose-50 text-rose-600 rounded-xl font-bold hover:bg-rose-100 transition-all border border-rose-100"
+                    >
+                      <Trash2 size={16} /> 
+                      {selfieVideoDelete.isPending ? "Removing..." : "Delete Video"}
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* Video Upload Area */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Instructions */}
-                <div className="lg:col-span-1">
-                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
-                    <h4 className="font-medium text-blue-800 text-sm mb-2">
-                      📹 Recording Tips
+              <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
+                {/* Visual Guidelines */}
+                <div className="xl:col-span-2 space-y-4">
+                  <div className="bg-linear-to-br from-blue-50 to-indigo-50 border border-blue-100 p-6 rounded-[2rem]">
+                    <h4 className="font-black text-blue-900 text-sm mb-4 flex items-center gap-2">
+                       Guidance for Recording
                     </h4>
-                    <ul className="text-xs text-blue-700 space-y-1">
-                      <li>• Record 5-15 seconds</li>
-                      <li>• Use natural lighting</li>
-                      <li>• Face the camera directly</li>
-                      <li>• Speak your name clearly</li>
-                      <li>• No filters or accessories</li>
+                    <ul className="space-y-3">
+                      {[
+                        "Maintain a neutral expression",
+                        "Ensure your full face is visible",
+                        "Speak your full name clearly",
+                        "Avoid using background filters",
+                        "Video length: 5 to 10 seconds"
+                      ].map((tip, i) => (
+                        <li key={i} className="flex gap-3 text-xs font-bold text-blue-700/70">
+                          <FiCheckCircle className="shrink-0 text-blue-500 mt-0.5" />
+                          {tip}
+                        </li>
+                      ))}
                     </ul>
                   </div>
-
-                  <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-                    <span>Accepted: mp4, mov, webm (max 20MB)</span>
-                  </div>
                 </div>
 
-                {/* Video Preview & Upload */}
-                <div className="lg:col-span-2">
+                {/* Dropzone/Preview */}
+                <div className="xl:col-span-3">
                   <div
                     onDrop={handleDrop}
                     onDragOver={handleDragOver}
-                    className="border-2 border-dashed border-gray-300 rounded-xl p-6 hover:border-green-400 transition-colors"
+                    className={`relative min-h-[300px] border-2 border-dashed rounded-[2.5rem] transition-all duration-300 flex items-center justify-center overflow-hidden ${
+                      selectedVideoFile || auth.selfieVideo 
+                        ? "border-green-200 bg-gray-50/30" 
+                        : "border-gray-200 bg-gray-50/50 hover:border-green-400"
+                    }`}
                   >
                     {!(videoPreview || auth.selfieVideo) ? (
-                      <div className="text-center">
-                        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-                          <Upload size={24} className="text-gray-400" />
+                      <div className="text-center p-8">
+                        <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-white shadow-xl flex items-center justify-center text-green-500 scale-110">
+                          <Upload size={32} />
                         </div>
-                        <p className="text-sm text-gray-600 mb-2">
-                          Drag & drop your selfie video here
-                        </p>
-                        <p className="text-xs text-gray-500 mb-4">
-                          Or click the button below to browse files
-                        </p>
-                        <label
-                          htmlFor="videoUpload"
-                          className="inline-flex items-center gap-2 rounded-lg bg-green-600 text-white px-4 py-2 text-sm cursor-pointer hover:bg-green-700"
-                        >
-                          <Upload size={14} /> Choose Video File
+                        <h4 className="text-lg font-black text-gray-700 mb-2">Drop your video here</h4>
+                        <p className="text-xs font-bold text-gray-400 mb-8 uppercase tracking-widest">or browse from device</p>
+                        
+                        <label className="inline-flex items-center gap-2 rounded-2xl bg-green-600 text-white px-8 py-4 font-black text-sm cursor-pointer hover:bg-green-700 shadow-xl shadow-green-100 active:scale-95 transition-all">
+                          <Upload size={18} /> Choice Source
                           <input
-                            id="videoUpload"
                             type="file"
                             accept="video/*"
                             className="hidden"
@@ -610,31 +583,19 @@ const Profile: React.FC = () => {
                         </label>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center">
-                        <div className="relative w-full max-w-md">
+                      <div className="w-full h-full p-4 flex flex-col items-center">
+                        <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-2xl border-4 border-white">
                           <video
                             src={(videoPreview || auth.selfieVideo) as string}
                             controls
-                            className="w-full h-64 rounded-lg object-cover shadow-lg"
+                            className="w-full h-full object-cover"
                           />
-                          <button
-                            onClick={
-                              videoPreview ? removeVideo : deleteSelfieVideo
-                            }
-                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
-                          >
-                            ×
-                          </button>
                         </div>
 
-                        <div className="mt-4 flex gap-3">
-                          <label
-                            htmlFor="videoUpload"
-                            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50"
-                          >
-                            <RefreshCw size={14} /> Change Video
+                        <div className="mt-6 flex flex-wrap justify-center gap-4">
+                          <label className="flex items-center gap-2 px-6 py-3 bg-white text-gray-700 rounded-2xl font-bold border border-gray-200 cursor-pointer hover:bg-gray-50 transition-all">
+                            <RefreshCw size={18} /> Retake Video
                             <input
-                              id="videoUpload"
                               type="file"
                               accept="video/*"
                               className="hidden"
@@ -645,35 +606,61 @@ const Profile: React.FC = () => {
                           {selectedVideoFile && (
                             <button
                               onClick={uploadVideo}
-                              className="inline-flex items-center gap-2 rounded-lg bg-green-600 text-white px-4 py-2 text-sm hover:bg-green-700"
+                              className="flex items-center gap-2 px-8 py-3 bg-green-600 text-white rounded-2xl font-black shadow-xl shadow-green-100 hover:scale-105 active:scale-95 transition-all"
                             >
-                              <Upload size={14} />
-                              {selfieVideoUpdate.isPending
-                                ? "Uploading...."
-                                : "Upload to Server"}
+                              <Upload size={18} />
+                              {selfieVideoUpdate.isPending ? "Sharing..." : "Upload Final"}
                             </button>
                           )}
                         </div>
                       </div>
                     )}
                   </div>
-
-                  {/* Status Message */}
+                  
                   {selectedVideoFile && (
-                    <div className="mt-3 text-center">
-                      <p className="text-sm text-green-600">
-                        ✓ Video ready to upload: {selectedVideoFile.name}
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 text-center"
+                    >
+                      <p className="text-xs font-black text-green-600 uppercase tracking-widest">
+                        Ready to process: {selectedVideoFile.name}
                       </p>
-                    </div>
+                    </motion.div>
                   )}
                 </div>
               </div>
             </div>
-          </div>
-        </main>
-      </div>
+          </motion.main>
+        </div>
+      </motion.div>
+
+      {/* FOOTER MINI */}
+      <footer className="py-12 mt-12 text-center text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">
+        <p>&copy; {new Date().getFullYear()} ExamHub &bull; Secured Identity Environment</p>
+      </footer>
     </div>
   );
 };
 
 export default Profile;
+
+// Internal dependencies for consistent icons
+const FiCheckCircle = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="3" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className} 
+    width="14" 
+    height="14"
+  >
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+  </svg>
+);
+
