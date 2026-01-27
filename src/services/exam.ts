@@ -16,6 +16,7 @@ export interface Exam {
   questionCount: number;
   microphoneRequired: boolean;
   faceDetectionRequired: boolean;
+  instructions?: string; // API instructions field
 }
 
 export interface ExamHistoryItem {

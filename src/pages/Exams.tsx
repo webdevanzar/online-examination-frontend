@@ -8,12 +8,14 @@ import {
   formatExamDate,
   type ExamStatus,
 } from "../utils/dateUtils";
+import { useElectronIntegration } from "../utils/electronIntegration";
 
 // ExamCard Component with attempt status checking
 function ExamCard({ exam }: { exam: Exam }) {
   const navigate = useNavigate();
   const status = getExamStatus(exam.startTime, exam.endTime);
   const canStart = canStartExam(exam.startTime, exam.endTime);
+  const { checkAndRedirect } = useElectronIntegration();
 
   // Fetch attempt status for this exam
   const { data: attemptStatus, isLoading: statusLoading } = useExamAttemptStatus(exam.id);
@@ -107,10 +109,32 @@ function ExamCard({ exam }: { exam: Exam }) {
       }
 
       // If exam is in progress, allow resume
-      if (attemptStatus?.status === "in_progress") {
+      if (attemptStatus?.status === "in_progress" && attemptStatus?.attemptId) {
+        const handleResume = async () => {
+          try {
+            // Get auth token from localStorage
+            const token = localStorage.getItem('token') || '';
+            
+            const canProceed = await checkAndRedirect(
+              exam.id,
+              attemptStatus.attemptId,
+              token
+            );
+            
+            if (canProceed) {
+              // Continue with web navigation (already in Electron)
+              navigate(`/exam/${attemptStatus.attemptId}/start`, { state: { exam } });
+            }
+          } catch (error) {
+            console.error('Error checking Electron integration for resume:', error);
+            // Fallback to web navigation
+            navigate(`/exam/${attemptStatus.attemptId}/start`, { state: { exam } });
+          }
+        };
+
         return (
           <button
-            onClick={() => navigate(`/exam/${attemptStatus.attemptId}/start`, { state: { exam } })}
+            onClick={handleResume}
             className="w-full py-3 rounded-xl mt-2 font-semibold bg-yellow-600 text-white hover:bg-yellow-700 transition-all"
           >
             Resume Exam

@@ -19,6 +19,9 @@ import TypingProfileSetup from "./pages/TypingProfileSetup";
 import { ExamSubmitPage } from "./pages/ExamSubmit";
 import ForgotPassword from "./pages/Forgotpassword";
 import ExamEnrollmentPage from "./pages/ExamEnrollmentPage";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import CookiePolicy from "./pages/CookiePolicy";
 import { ProtectedRouteAfterLogin } from "./middleware/ProtectedRouteAfterLogin";
 import { ProtectedRoute } from "./middleware/ProtectedRoute";
 import { ExamAttemptGuard } from "./middleware/ExamAttemptGuard";
@@ -43,6 +46,9 @@ function App() {
             <Route path="/exams" element={<Exams />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/about" element={<About />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/cookie-policy" element={<CookiePolicy />} />
             <Route path="/countdown" element={<CountdownPage />} />
           </Route>
           <Route path="/system-check" element={<SystemCheckPage />} />

@@ -5,7 +5,6 @@ import {
   Trash2,
   Pencil,
   Check,
-  Play,
   User2,
   Keyboard,
   RefreshCw,
@@ -58,7 +57,7 @@ const Profile: React.FC = () => {
 
   const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(
-    null
+    null,
   );
   const [user, setUser] = useState<User>(initialUser);
 
@@ -129,7 +128,7 @@ const Profile: React.FC = () => {
 
   // Handlers
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setDraft((prev) => ({ ...prev, [name]: value }));
@@ -326,18 +325,20 @@ const Profile: React.FC = () => {
               {selectedAvatarFile && (
                 <button
                   onClick={uploadProfileImage}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 text-white px-4 py-2 text-sm font-medium hover:bg-green-700"
+                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-green-600 text-white px-4 py-2 text-sm font-medium hover:bg-green-700"
                 >
-                  <Upload size={14} /> Upload
+                  <Upload size={14} />
+                  {profileImageUpdate.isPending ? "Uploading..." : "Upload"}
                 </button>
               )}
 
               {(auth.profileImage || draft.avatar) && !selectedAvatarFile && (
                 <button
                   onClick={deleteProfileImage}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
-                  <Trash2 size={14} /> Remove
+                  <Trash2 size={14} />{" "}
+                  {profileImageDelete.isPending ? "Removing..." : "Remove"}
                 </button>
               )}
             </div>
@@ -546,7 +547,10 @@ const Profile: React.FC = () => {
                     onClick={deleteSelfieVideo}
                     className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                   >
-                    <Trash2 size={14} /> Delete Saved Video
+                    <Trash2 size={14} />
+                    {selfieVideoDelete.isPending
+                      ? "Deleting..."
+                      : "Delete Saved Video"}
                   </button>
                 )}
               </div>
@@ -566,17 +570,6 @@ const Profile: React.FC = () => {
                       <li>• Speak your name clearly</li>
                       <li>• No filters or accessories</li>
                     </ul>
-
-                    <button
-                      onClick={() => {
-                        alert(
-                          "Instruction: Record a short video (5-15s) with your face visible and good lighting."
-                        );
-                      }}
-                      className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 px-3 py-2 text-xs text-blue-700 hover:bg-blue-100"
-                    >
-                      <Play size={12} /> Watch Demo
-                    </button>
                   </div>
 
                   <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
@@ -654,7 +647,10 @@ const Profile: React.FC = () => {
                               onClick={uploadVideo}
                               className="inline-flex items-center gap-2 rounded-lg bg-green-600 text-white px-4 py-2 text-sm hover:bg-green-700"
                             >
-                              <Upload size={14} /> Upload to Server
+                              <Upload size={14} />
+                              {selfieVideoUpdate.isPending
+                                ? "Uploading...."
+                                : "Upload to Server"}
                             </button>
                           )}
                         </div>

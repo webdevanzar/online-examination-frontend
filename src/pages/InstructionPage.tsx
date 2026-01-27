@@ -35,8 +35,12 @@ const InstructionPage = () => {
         if (Array.isArray(parsed)) {
           apiInstructions.push(...parsed);
         }
-      } catch (err) {
-        console.error("Failed to parse exam instructions:", err);
+      } catch {
+        console.error("Failed to parse exam instructions");
+        // If parsing fails, treat as single instruction string
+        if (typeof exam.instructions === 'string' && exam.instructions.trim()) {
+          apiInstructions.push(exam.instructions.trim());
+        }
       }
     }
 
@@ -54,7 +58,18 @@ const InstructionPage = () => {
     return uniqueInstructions;
   };
 
+  // Get API description if available
+  const getExamDescription = () => {
+    if (exam?.description && exam.description.trim()) {
+      return exam.description;
+    }
+    return null;
+  };
+
   const instructions = getInstructions();
+  const examDescription = getExamDescription();
+  const hasApiInstructions = exam?.instructions && exam.instructions.trim();
+  const hasApiDescription = examDescription !== null;
 
   const canStart = exam ? new Date() >= new Date(exam.startTime) : false;
 
@@ -119,7 +134,28 @@ const InstructionPage = () => {
           {exam.title}
         </h1>
 
-        {/* TOP SECTION */}
+        {/* EXAM DESCRIPTION FROM API */}
+        {hasApiDescription && (
+          <div
+            className="p-6 rounded-2xl mb-8"
+            style={{
+              backgroundColor: colors.lightGray,
+              border: `1px solid ${colors.borderGray}`,
+            }}
+          >
+            <h2
+              className="text-xl font-semibold mb-4"
+              style={{ color: colors.darkText }}
+            >
+              About This Exam
+            </h2>
+            <p className="text-lg leading-relaxed" style={{ color: colors.softText }}>
+              {examDescription}
+            </p>
+          </div>
+        )}
+
+        {/* EXAM DETAILS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-10">
           <div
             className="p-6 rounded-2xl"
@@ -166,40 +202,80 @@ const InstructionPage = () => {
           }}
         >
           <h2
-            className="text-2xl font-semibold mb-4"
+            className="text-2xl font-semibold mb-6"
             style={{ color: colors.green }}
           >
             Instructions
           </h2>
 
-          <ul className="space-y-3" style={{ color: colors.softText }}>
-            {instructions.map((ins, i) => (
-              <li key={i} className="text-lg">• {ins}</li>
-            ))}
-          </ul>
+          {/* API Instructions Section */}
+          {hasApiInstructions && (
+            <div className="mb-6">
+              <h3
+                className="text-lg font-semibold mb-3"
+                style={{ color: colors.darkText }}
+              >
+                📋 Exam-Specific Instructions
+              </h3>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800 mb-2">
+                  These instructions are specifically provided for this exam:
+                </p>
+                <ul className="space-y-2" style={{ color: colors.softText }}>
+                  {(() => {
+                    const apiInstructions: string[] = [];
+                    if (exam?.instructions) {
+                      try {
+                        const parsed = JSON.parse(exam.instructions);
+                        if (Array.isArray(parsed)) {
+                          apiInstructions.push(...parsed);
+                        }
+                      } catch {
+                        if (typeof exam.instructions === 'string' && exam.instructions.trim()) {
+                          apiInstructions.push(exam.instructions.trim());
+                        }
+                      }
+                    }
+                    return apiInstructions.map((ins, i) => (
+                      <li key={i} className="text-lg flex items-start">
+                        <span className="text-blue-600 mr-2 mt-1">•</span>
+                        <span>{ins}</span>
+                      </li>
+                    ));
+                  })()}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* General Instructions Section */}
+          <div>
+            <h3
+              className="text-lg font-semibold mb-3"
+              style={{ color: colors.darkText }}
+            >
+              ⚠️ General Guidelines
+            </h3>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm text-yellow-800 mb-2">
+                Please follow these general guidelines for all exams:
+              </p>
+              <ul className="space-y-2" style={{ color: colors.softText }}>
+                {instructions.map((ins, i) => {
+                  // Check if this is a fallback instruction
+                  const isFallback = fallbackInstructions.includes(ins);
+                  return (
+                    <li key={i} className="text-lg flex items-start">
+                      <span className={isFallback ? "text-yellow-600" : "text-blue-600"} style={{ marginRight: '8px', marginTop: '4px' }}>•</span>
+                      <span>{ins}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
         </div>
 
-        {/* REQUIREMENTS */}
-        <div
-          className="p-8 rounded-2xl mb-10"
-          style={{
-            backgroundColor: colors.lightGray,
-            border: `1px solid ${colors.borderGray}`,
-          }}
-        >
-          <h2
-            className="text-2xl font-semibold mb-4"
-            style={{ color: colors.green }}
-          >
-            Requirements
-          </h2>
-
-          <ul className="space-y-3" style={{ color: colors.softText }}>
-            <li>Camera / Face detection: {exam.faceDetectionRequired ? "Yes ✔" : "No"}</li>
-            <li>Microphone needed: {exam.microphoneRequired ? "Yes ✔" : "No"}</li>
-            <li>Full screen required: Yes ✔</li>
-          </ul>
-        </div>
 
         {/* BUTTON */}
         <div className="flex justify-center">

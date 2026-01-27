@@ -13,7 +13,7 @@ import { IoIosStats } from "react-icons/io";
 import { FaCheckDouble } from "react-icons/fa6";
 import { CgCloseR } from "react-icons/cg";
 import { BiTrophy } from "react-icons/bi";
-import { useExamHistory,type ExamHistoryItem } from "../services/exam";
+import { useExamHistory, type ExamHistoryItem } from "../services/exam";
 
 type StatusFilter = "all" | "passed" | "failed";
 type SortOption = "date-desc" | "date-asc" | "score-desc" | "score-asc";
@@ -43,14 +43,14 @@ export const ExamHistory = () => {
       items = items.filter(
         (item) =>
           item.title.toLowerCase().includes(query) ||
-          item.subject.toLowerCase().includes(query)
+          item.subject.toLowerCase().includes(query),
       );
     }
 
     // Status filter
     if (statusFilter !== "all") {
       items = items.filter(
-        (item) => item.status.toLowerCase() === statusFilter
+        (item) => item.status.toLowerCase() === statusFilter,
       );
     }
 
@@ -92,7 +92,7 @@ export const ExamHistory = () => {
 
   if (isLoading) {
     return (
-      <div className="bg-gradient-to-br from-[#F6FBF7] to-[#E8F5E9] min-h-screen p-6 md:p-10">
+      <div className="bg-linear-to-br from-[#F6FBF7] to-[#E8F5E9] min-h-screen p-6 md:p-10">
         <div className="max-w-6xl mx-auto">
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-gray-200 rounded w-48"></div>
@@ -115,7 +115,7 @@ export const ExamHistory = () => {
 
   if (error) {
     return (
-      <div className="bg-gradient-to-br from-[#F6FBF7] to-[#E8F5E9] min-h-screen p-6 md:p-10 flex items-center justify-center">
+      <div className="bg-linear-to-br from-[#F6FBF7] to-[#E8F5E9] min-h-screen p-6 md:p-10 flex items-center justify-center">
         <div className="bg-white p-8 rounded-2xl shadow-lg text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <FiAlertTriangle size={32} className="text-red-500" />
@@ -138,7 +138,7 @@ export const ExamHistory = () => {
   }
 
   return (
-    <div className="bg-gradient-to-br from-[#F6FBF7] to-[#E8F5E9] min-h-screen p-6 md:p-10">
+    <div className="bg-linear-to-br from-[#F6FBF7] to-[#E8F5E9] min-h-screen p-6 md:p-10">
       <div className="max-w-6xl mx-auto">
         {/* Back Link */}
         <Link
@@ -164,7 +164,7 @@ export const ExamHistory = () => {
           {/* Total Exams */}
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-linear-to-br from-green-100 to-emerald-100 rounded-xl flex items-center justify-center">
                 <IoIosStats size={28} className="text-green-600" />
               </div>
               <div>
@@ -179,7 +179,7 @@ export const ExamHistory = () => {
           {/* Passed */}
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-emerald-100 to-green-100 rounded-xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-linear-to-br from-emerald-100 to-green-100 rounded-xl flex items-center justify-center">
                 <FaCheckDouble size={24} className="text-emerald-600" />
               </div>
               <div>
@@ -194,7 +194,7 @@ export const ExamHistory = () => {
           {/* Failed */}
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-red-50 to-rose-100 rounded-xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-linear-to-br from-red-50 to-rose-100 rounded-xl flex items-center justify-center">
                 <CgCloseR size={24} className="text-red-500" />
               </div>
               <div>
@@ -209,7 +209,7 @@ export const ExamHistory = () => {
           {/* Avg Score */}
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-amber-100 to-yellow-100 rounded-xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-linear-to-br from-amber-100 to-yellow-100 rounded-xl flex items-center justify-center">
                 <BiTrophy size={26} className="text-amber-600" />
               </div>
               <div>
@@ -377,10 +377,10 @@ const ExamCard = ({ exam, formatDate }: ExamCardProps) => {
     exam.score >= 80
       ? "text-emerald-600"
       : exam.score >= 60
-      ? "text-green-600"
-      : exam.score >= 40
-      ? "text-amber-600"
-      : "text-red-500";
+        ? "text-green-600"
+        : exam.score >= 40
+          ? "text-amber-600"
+          : "text-red-500";
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">

@@ -9,6 +9,7 @@ import {
   useSubmitExam,
 } from "../services/auth";
 import { toast } from "sonner";
+import { ElectronIntegration, useElectronIntegration } from "../utils/electronIntegration";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
@@ -44,6 +45,7 @@ interface KeystrokeEvent {
 const ExamStartPage: React.FC = () => {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
+  const { checkAndRedirect } = useElectronIntegration();
 
   // Fetch exam details using attemptId
   const {
@@ -179,6 +181,31 @@ const ExamStartPage: React.FC = () => {
     };
   }, [terminated]);
 
+  // Electron Integration - Redirect to Electron app if in regular browser
+  useEffect(() => {
+    // Only redirect if we're in a regular browser AND have exam data
+    if (examDetails && attemptId && !ElectronIntegration.isRegularBrowser()) {
+      console.log('Already running in Electron app, skipping redirect');
+      return;
+    }
+
+    if (examDetails && attemptId) {
+      const token = localStorage.getItem('token') || '';
+      
+      checkAndRedirect(
+        examDetails.exam.id,
+        attemptId,
+        token
+      ).then(canProceed => {
+        if (canProceed) {
+          console.log('Electron integration check passed, proceeding with exam');
+        }
+      }).catch(error => {
+        console.error('Error in Electron integration:', error);
+      });
+    }
+  }, [examDetails, attemptId, checkAndRedirect]);
+
   const handleSubmit = useCallback(() => {
     if (!examDetails || !attemptId) {
       alert("Unable to submit: Missing exam information");
@@ -224,7 +251,17 @@ const ExamStartPage: React.FC = () => {
             {
               onSuccess: (data) => {
                 alert(`Exam submitted successfully! Your score: ${data.score}`);
-                navigate(`/results?attemptId=${attemptId}`);
+                
+                // Check if running in Electron app and exit after submission
+                if (!ElectronIntegration.isRegularBrowser()) {
+                  console.log('Exam submitted in Electron app, exiting...');
+                  setTimeout(() => {
+                    // Close the Electron app after a short delay
+                    window.close();
+                  }, 2000);
+                } else {
+                  navigate("/"); // Redirect to home in regular browser
+                }
               },
               onError: (error: unknown) => {
                 const errorMsg =
@@ -257,6 +294,11 @@ const ExamStartPage: React.FC = () => {
     );
     if (confirmEnd) {
       handleSubmit();
+      
+      // For Electron app, show additional confirmation about app exit
+      if (!ElectronIntegration.isRegularBrowser()) {
+        console.log('End exam triggered in Electron app - app will exit after submission');
+      }
     }
   };
 
@@ -504,7 +546,7 @@ const ExamStartPage: React.FC = () => {
 
     socket.on(
       "cheat:warning",
-      (data: { type: string; warningCount: number; message: string }) => {
+      (data: { type: string; warningCount: number; message: string; faces?: any[]; objects?: any[] }) => {
         console.log(`[CHEAT:WARNING] Received:`, data);
         setWarningCount(data.warningCount);
 
@@ -512,6 +554,20 @@ const ExamStartPage: React.FC = () => {
 
         const isVoiceWarning =
           data.type === "voice" || msg.includes("voice") || msg.includes("speech");
+
+        // Enhanced face detection logic - check both faces array and objects
+        const hasPersonObject = data.objects?.some((obj: any) => 
+          obj.class === 'person' && obj.confidence > 0.5
+        );
+        const hasDetectedFaces = data.faces && data.faces.length > 0;
+        
+        // Determine if this is a false positive "no face" warning
+        const isFalsePositiveNoFace = msg.includes("no face") && hasPersonObject && !hasDetectedFaces;
+        
+        if (isFalsePositiveNoFace) {
+          console.log('[FACE-DETECTION] Suppressing "no face" warning - person detected as object with confidence > 0.5');
+          return;
+        }
 
         const warningKey = isVoiceWarning
           ? "voice"
@@ -1048,26 +1104,32 @@ const ExamStartPage: React.FC = () => {
               {marked.includes(String(q.id)) ? "Marked" : "Mark for Review"}
             </button>
 
+            {/* Next Button - Only show if not on last question */}
+            {currentIndex < questions.length - 1 && (
+              <button
+                onClick={() =>
+                  setCurrentIndex((i) => Math.min(i + 1, questions.length - 1))
+                }
+                className="px-5 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
+                style={{ backgroundColor: colors.green }}
+                disabled={terminated}
+              >
+                Next
+              </button>
+            )}
+          </div>
+
+          {/* Submit Button - Only show if on last question */}
+          {currentIndex === questions.length - 1 && (
             <button
-              onClick={() =>
-                setCurrentIndex((i) => Math.min(i + 1, questions.length - 1))
-              }
-              className="px-5 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
+              onClick={handleSubmit}
+              className="w-full py-4 rounded-2xl mt-10 text-xl text-white font-bold hover:opacity-90 transition disabled:opacity-50"
               style={{ backgroundColor: colors.green }}
               disabled={terminated}
             >
-              Next
+              Submit Exam
             </button>
-          </div>
-
-          <button
-            onClick={handleSubmit}
-            className="w-full py-4 rounded-2xl mt-10 text-xl text-white font-bold hover:opacity-90 transition disabled:opacity-50"
-            style={{ backgroundColor: colors.green }}
-            disabled={terminated}
-          >
-            Submit Exam
-          </button>
+          )}
         </div>
       </div>
 
