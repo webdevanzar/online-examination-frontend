@@ -8,157 +8,153 @@ import {
   formatExamDate,
   type ExamStatus,
 } from "../utils/dateUtils";
-import { useElectronIntegration } from "../utils/electronIntegration";
 
 // ExamCard Component with attempt status checking
 function ExamCard({ exam }: { exam: Exam }) {
   const navigate = useNavigate();
   const status = getExamStatus(exam.startTime, exam.endTime);
   const canStart = canStartExam(exam.startTime, exam.endTime);
-  const { checkAndRedirect } = useElectronIntegration();
 
   // Fetch attempt status for this exam
-  const { data: attemptStatus, isLoading: statusLoading } = useExamAttemptStatus(exam.id);
+  const { data: attemptStatus, isLoading: statusLoading } =
+    useExamAttemptStatus(exam.id);
 
   const renderActionButton = () => {
-    // Show loading state while fetching attempt status
     if (statusLoading) {
       return (
         <button
           disabled
-          className="w-full py-3 rounded-xl mt-2 font-semibold bg-gray-200 text-gray-500 cursor-wait"
+          className="w-full py-4 rounded-2xl mt-2 font-bold bg-slate-50 text-slate-400 cursor-wait flex items-center justify-center gap-2 border border-slate-100"
         >
+          <div className="w-4 h-4 border-2 border-slate-300 border-t-transparent rounded-full animate-spin"></div>
           Checking status...
         </button>
       );
     }
 
-    // For completed exams (exam ended)
     if (status === "completed") {
-      // If student submitted the exam
       if (attemptStatus?.status === "submitted") {
         return (
           <button
             disabled
-            className="w-full py-3 rounded-xl mt-2 font-semibold bg-linear-to-r from-blue-500 to-blue-600 text-white cursor-not-allowed opacity-75"
+            className="w-full py-4 rounded-2xl mt-2 font-bold bg-slate-50 text-emerald-600 cursor-not-allowed border border-emerald-100 flex items-center justify-center gap-2"
           >
-            ✓ Submitted (Score: {attemptStatus.score}/{attemptStatus.totalMarks})
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            Submitted
           </button>
         );
       }
 
-      // If exam was terminated, allow restart
       if (attemptStatus?.status === "terminated") {
         return (
           <button
             onClick={() => navigate("/instructions", { state: { exam } })}
-            className="w-full py-3 rounded-xl mt-2 font-semibold bg-orange-600 text-white hover:bg-orange-700 transition-all"
+            className="w-full py-4 rounded-2xl mt-2 font-bold bg-orange-600 text-white hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 hover:scale-[1.02] active:scale-[0.98]"
           >
-            Restart Exam (Previous: Terminated)
+            Restart Exam
           </button>
         );
       }
 
-      // Exam ended and not attempted
       return (
         <button
           disabled
-          className="w-full py-3 rounded-xl mt-2 font-semibold bg-gray-300 text-gray-500 cursor-not-allowed"
+          className="w-full py-4 rounded-2xl mt-2 font-bold bg-slate-100 text-slate-400 cursor-not-allowed"
         >
           Exam Ended
         </button>
       );
     }
 
-    // For upcoming exams
     if (status === "upcoming") {
       return (
         <button
           disabled
-          className="w-full py-3 rounded-xl mt-2 font-semibold bg-gray-300 text-gray-500 cursor-not-allowed"
+          className="w-full py-4 rounded-2xl mt-2 font-bold bg-slate-50 text-slate-400 cursor-not-allowed border border-slate-100"
         >
           Not Yet Started
         </button>
       );
     }
 
-    // For ongoing exams
     if (status === "ongoing") {
-      // If already submitted
       if (attemptStatus?.status === "submitted") {
         return (
           <button
             disabled
-            className="w-full py-3 rounded-xl mt-2 font-semibold bg-linear-to-r from-blue-500 to-blue-600 text-white cursor-not-allowed opacity-75"
+            className="w-full py-4 rounded-2xl mt-2 font-bold bg-slate-50 text-emerald-600 cursor-not-allowed border border-emerald-100 flex items-center justify-center gap-2"
           >
-            ✓ Submitted (Score: {attemptStatus.score}/{attemptStatus.totalMarks})
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            Submitted
           </button>
         );
       }
 
-      // If exam was terminated, allow restart
       if (attemptStatus?.status === "terminated") {
         return (
           <button
             onClick={() => navigate("/instructions", { state: { exam } })}
-            className="w-full py-3 rounded-xl mt-2 font-semibold bg-orange-600 text-white hover:bg-orange-700 transition-all"
+            className="w-full py-4 rounded-2xl mt-2 font-bold bg-orange-600 text-white hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 hover:scale-[1.02] active:scale-[0.98]"
           >
-            Restart Exam (Previous: Terminated)
+            Restart Exam
           </button>
         );
       }
 
-      // If exam is in progress, allow resume
       if (attemptStatus?.status === "in_progress" && attemptStatus?.attemptId) {
-        const handleResume = async () => {
-          try {
-            // Get auth token from localStorage
-            const token = localStorage.getItem('token') || '';
-            
-            const canProceed = await checkAndRedirect(
-              exam.id,
-              attemptStatus.attemptId,
-              token
-            );
-            
-            if (canProceed) {
-              // Continue with web navigation (already in Electron)
-              navigate(`/exam/${attemptStatus.attemptId}/start`, { state: { exam } });
-            }
-          } catch (error) {
-            console.error('Error checking Electron integration for resume:', error);
-            // Fallback to web navigation
-            navigate(`/exam/${attemptStatus.attemptId}/start`, { state: { exam } });
-          }
-        };
-
         return (
           <button
-            onClick={handleResume}
-            className="w-full py-3 rounded-xl mt-2 font-semibold bg-yellow-600 text-white hover:bg-yellow-700 transition-all"
+            onClick={() =>
+              navigate(`/exam/${attemptStatus.attemptId}/start`, {
+                state: { exam },
+              })
+            }
+            className="w-full py-4 rounded-2xl mt-2 font-bold bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 hover:scale-[1.02] active:scale-[0.98]"
           >
             Resume Exam
           </button>
         );
       }
 
-      // Not attempted yet and can start
       if (canStart) {
         return (
           <button
             onClick={() => navigate("/instructions", { state: { exam } })}
-            className="w-full py-3 rounded-xl mt-2 font-semibold bg-green-600 text-white hover:bg-green-700 transition-all"
+            className="w-full py-4 rounded-2xl mt-2 font-bold bg-green-600 text-white hover:bg-green-700 transition-all shadow-lg shadow-green-200 hover:scale-[1.02] active:scale-[0.98]"
           >
             Start Exam
           </button>
         );
       }
 
-      // Exam ended (shouldn't happen for ongoing status, but handle it)
       return (
         <button
           disabled
-          className="w-full py-3 rounded-xl mt-2 font-semibold bg-gray-300 text-gray-500 cursor-not-allowed"
+          className="w-full py-4 rounded-2xl mt-2 font-bold bg-slate-100 text-slate-400 cursor-not-allowed"
         >
           Exam Ended
         </button>
@@ -171,62 +167,88 @@ function ExamCard({ exam }: { exam: Exam }) {
   return (
     <div
       key={exam.id}
-      className="bg-white rounded-3xl border shadow-lg hover:shadow-2xl transition-all p-8 hover:-translate-y-2"
+      className="bg-white rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-green-900/10 transition-all p-8 group relative overflow-hidden"
     >
-      {/* Status Badge */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-green-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500 opacity-50"></div>
+
+      <div className="flex justify-between items-start mb-6 relative">
         <span
-          className={`px-4 py-1 text-sm rounded-full font-medium ${
+          className={`px-4 py-1.5 text-xs rounded-xl font-black tracking-widest uppercase ${
             status === "ongoing"
-              ? "bg-green-100 text-green-700"
+              ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
               : status === "upcoming"
-              ? "bg-blue-100 text-blue-700"
-              : "bg-gray-100 text-gray-700"
+                ? "bg-blue-50 text-blue-600 border border-blue-100"
+                : "bg-slate-50 text-slate-500 border border-slate-100"
           }`}
         >
-          {status === "ongoing" && "🟢 Active Now"}
-          {status === "upcoming" && "🔵 Coming Soon"}
-          {status === "completed" && "⚪ Completed"}
+          {status === "ongoing" && "● Active"}
+          {status === "upcoming" && "Coming Soon"}
+          {status === "completed" && "Completed"}
         </span>
 
-        <span className="text-gray-400 text-sm font-medium">
-          ID: {exam.id.substring(0, 8)}
+        <span className="text-slate-300 text-[10px] font-black tracking-widest uppercase">
+          {exam.id.substring(0, 8)}
         </span>
       </div>
 
-      {/* Exam Title */}
-      <h3 className="text-2xl font-bold text-gray-800 mb-3">
+      <h3 className="text-2xl font-black text-slate-800 mb-4 leading-tight group-hover:text-green-700 transition-colors">
         {exam.title}
       </h3>
 
-      {/* Description (truncated) */}
       {exam.description && (
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+        <p className="text-slate-500 text-sm mb-6 line-clamp-2 leading-relaxed font-medium">
           {exam.description}
         </p>
       )}
 
-      {/* Exam Info */}
-      <div className="text-gray-600 space-y-2 mb-6">
-        <p className="flex items-center gap-2">
-          📅 <span>Start: {formatExamDate(exam.startTime)}</span>
-        </p>
-        <p className="flex items-center gap-2">
-          ⏳ <span>Duration: {exam.duration} mins</span>
-        </p>
-        <p className="flex items-center gap-2">
-          📚 <span>Subject: {exam.subject}</span>
-        </p>
-        {/* <p className="flex items-center gap-2">
-          📝 <span>Questions: {exam.questionCount}</span>
-        </p> */}
-        <p className="flex items-center gap-2">
-          ⭐ <span>Total Marks: {exam.totalMarks}</span>
-        </p>
+      <div className="space-y-4 mb-8 bg-slate-50/50 p-4 rounded-2xl border border-slate-50">
+        <div className="flex items-center gap-3 text-slate-600">
+          <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-green-600">
+            📅
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+              Date & Time
+            </span>
+            <span className="text-sm font-bold">
+              {formatExamDate(exam.startTime)}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 text-slate-600">
+          <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-blue-600">
+            ⏳
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+              Duration
+            </span>
+            <span className="text-sm font-bold">{exam.duration} Minutes</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+              Subject:
+            </span>
+            <span className="text-xs font-black text-slate-700 bg-slate-100 px-2 py-1 rounded-md">
+              {exam.subject}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+              Total:
+            </span>
+            <span className="text-xs font-black text-green-600">
+              {exam.totalMarks} Marks
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Action Button */}
-      {renderActionButton()}
+      <div className="relative">{renderActionButton()}</div>
     </div>
   );
 }
@@ -253,7 +275,10 @@ export default function Exams() {
         acc[status].push(exam);
         return acc;
       },
-      { ongoing: [], upcoming: [], completed: [] } as Record<ExamStatus, Exam[]>
+      { ongoing: [], upcoming: [], completed: [] } as Record<
+        ExamStatus,
+        Exam[]
+      >,
     );
   }, [exams]);
 
@@ -291,17 +316,17 @@ export default function Exams() {
       <div className="absolute -bottom-20 -right-32 w-72 h-72 bg-green-100 rounded-full opacity-40 blur-3xl"></div>
 
       {/* Section Header */}
-      <div className="text-center mb-12">
-        <span className="px-4 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-          {activeTab === "ongoing" && "🟢 Active Exams"}
-          {activeTab === "upcoming" && "🔵 Upcoming Exams"}
-          {activeTab === "completed" && "⚪ Previous Exams"}
+      <div className="text-center mb-16 relative">
+        <span className="px-6 py-2 bg-emerald-50 text-emerald-600 rounded-2xl text-xs font-black tracking-[0.2em] uppercase border border-emerald-100 shadow-sm inline-block mb-4">
+          {activeTab === "ongoing" && "🟢 Online Assessment"}
+          {activeTab === "upcoming" && "🔵 Scheduled Tasks"}
+          {activeTab === "completed" && "⚪ Historical Data"}
         </span>
 
-        <h2 className="text-4xl font-extrabold mt-4 text-gray-800">
-          {activeTab === "ongoing" && "Take Your Exams Now"}
-          {activeTab === "upcoming" && "Prepare for Upcoming Tests"}
-          {activeTab === "completed" && "Review Past Performance"}
+        <h2 className="text-5xl font-black text-slate-800 tracking-tight leading-none">
+          {activeTab === "ongoing" && "Active Exams"}
+          {activeTab === "upcoming" && "Upcoming Tests"}
+          {activeTab === "completed" && "Exam History"}
         </h2>
 
         <p className="text-gray-500 mt-2 text-lg">
@@ -312,27 +337,28 @@ export default function Exams() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex justify-center mb-8">
-        <div className="inline-flex bg-white rounded-2xl p-2 shadow-md border border-gray-200">
+      <div className="flex justify-center mb-16">
+        <div className="inline-flex bg-white/60 backdrop-blur-xl rounded-[24px] p-2 shadow-xl shadow-slate-200/50 border border-white/40">
           {/* Ongoing Tab */}
           <button
             onClick={() => setActiveTab("ongoing")}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+            className={`px-8 py-3.5 rounded-[20px] font-black tracking-wide transition-all duration-300 flex items-center gap-2 ${
               activeTab === "ongoing"
-                ? "bg-green-600 text-white shadow-lg"
-                : "text-gray-600 hover:bg-gray-100"
+                ? "bg-slate-900 text-white shadow-xl shadow-slate-900/20 scale-105"
+                : "text-slate-500 hover:text-slate-800 hover:bg-white/50"
             }`}
           >
-            Ongoing ({categorizedExams.ongoing.length})
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Active ({categorizedExams.ongoing.length})
           </button>
 
           {/* Upcoming Tab */}
           <button
             onClick={() => setActiveTab("upcoming")}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+            className={`px-8 py-3.5 rounded-[20px] font-black tracking-wide transition-all duration-300 ${
               activeTab === "upcoming"
-                ? "bg-green-600 text-white shadow-lg"
-                : "text-gray-600 hover:bg-gray-100"
+                ? "bg-slate-900 text-white shadow-xl shadow-slate-900/20 scale-105"
+                : "text-slate-500 hover:text-slate-800 hover:bg-white/50"
             }`}
           >
             Upcoming ({categorizedExams.upcoming.length})
@@ -341,10 +367,10 @@ export default function Exams() {
           {/* Previous Tab */}
           <button
             onClick={() => setActiveTab("completed")}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+            className={`px-8 py-3.5 rounded-[20px] font-black tracking-wide transition-all duration-300 ${
               activeTab === "completed"
-                ? "bg-green-600 text-white shadow-lg"
-                : "text-gray-600 hover:bg-gray-100"
+                ? "bg-slate-900 text-white shadow-xl shadow-slate-900/20 scale-105"
+                : "text-slate-500 hover:text-slate-800 hover:bg-white/50"
             }`}
           >
             Previous ({categorizedExams.completed.length})

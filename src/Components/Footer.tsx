@@ -13,7 +13,7 @@ const Footer = () => {
   return (
     <footer className="relative bg-linear-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-16 px-6 mt-20 overflow-hidden">
       {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-5">
+      <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0" style={{
           backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 1px)`,
           backgroundSize: '40px 40px'
@@ -32,9 +32,6 @@ const Footer = () => {
                   alt="ExamHub Logo" 
                   className="h-12 w-auto transition-transform duration-300 group-hover:scale-110"
                 />
-                <span className="text-2xl font-bold bg-linear-to-r from-green-400 to-green-600 bg-clip-text text-transparent">
-                  ExamHub
-                </span>
               </Link>
             </div>
             <p className="text-gray-300 leading-relaxed mb-6">
@@ -158,15 +155,15 @@ const Footer = () => {
               <li className="flex items-start gap-3">
                 <FiPhone size={18} className="text-green-400 mt-1 shrink-0" />
                 <div>
-                  <p className="text-gray-300 text-sm">+1 (555) 123-4567</p>
+                  <p className="text-gray-300 text-sm">+91 9961057130</p>
                   <p className="text-gray-400 text-xs">Mon-Fri, 9AM-6PM</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <FiMapPin size={18} className="text-green-400 mt-1 shrink-0" />
                 <div>
-                  <p className="text-gray-300 text-sm">123 Education Street</p>
-                  <p className="text-gray-400 text-xs">Learning City, LC 12345</p>
+                  <p className="text-gray-300 text-sm"> Ponniakurussi</p>
+                  <p className="text-gray-400 text-xs">Malappuram, Kerala</p>
                 </div>
               </li>
             </ul>

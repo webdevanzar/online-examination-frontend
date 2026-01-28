@@ -532,7 +532,7 @@ const Profile: React.FC = () => {
               <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
                 {/* Visual Guidelines */}
                 <div className="xl:col-span-2 space-y-4">
-                  <div className="bg-linear-to-br from-blue-50 to-indigo-50 border border-blue-100 p-6 rounded-[2rem]">
+                  <div className="bg-linear-to-br from-blue-50 to-indigo-50 border border-blue-100 p-6 rounded-4xl">
                     <h4 className="font-black text-blue-900 text-sm mb-4 flex items-center gap-2">
                        Guidance for Recording
                     </h4>
@@ -584,7 +584,7 @@ const Profile: React.FC = () => {
                       </div>
                     ) : (
                       <div className="w-full h-full p-4 flex flex-col items-center">
-                        <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-2xl border-4 border-white">
+                        <div className="relative w-full aspect-video rounded-4xl overflow-hidden shadow-2xl border-4 border-white">
                           <video
                             src={(videoPreview || auth.selfieVideo) as string}
                             controls
@@ -623,7 +623,7 @@ const Profile: React.FC = () => {
                       animate={{ opacity: 1, y: 0 }}
                       className="mt-4 text-center"
                     >
-                      <p className="text-xs font-black text-green-600 uppercase tracking-widest">
+                      <p className="text-xs wrap-break-word font-black text-green-600 uppercase tracking-widest">
                         Ready to process: {selectedVideoFile.name}
                       </p>
                     </motion.div>
@@ -635,10 +635,6 @@ const Profile: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* FOOTER MINI */}
-      <footer className="py-12 mt-12 text-center text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">
-        <p>&copy; {new Date().getFullYear()} ExamHub &bull; Secured Identity Environment</p>
-      </footer>
     </div>
   );
 };

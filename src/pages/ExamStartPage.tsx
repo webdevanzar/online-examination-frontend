@@ -9,7 +9,6 @@ import {
   useSubmitExam,
 } from "../services/auth";
 import { toast } from "sonner";
-import { ElectronIntegration, useElectronIntegration } from "../utils/electronIntegration";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
@@ -31,6 +30,7 @@ export interface ExamQuestion {
   id: number | string;
   question: string;
   type: "MCQ" | "TYPING";
+  hasMultipleCorrect?: boolean;
   options?: ExamOption[];
   answerMinLength?: number;
   answerMaxLength?: number;
@@ -45,7 +45,6 @@ interface KeystrokeEvent {
 const ExamStartPage: React.FC = () => {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
-  const { checkAndRedirect } = useElectronIntegration();
 
   // Fetch exam details using attemptId
   const {
@@ -55,6 +54,9 @@ const ExamStartPage: React.FC = () => {
     error,
   } = useExamDetailsByAttempt(attemptId || "", !!attemptId);
 
+  const exam = examDetails?.exam;
+  const questions = exam?.questions || [];
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const checkFrame = useCheckFrame();
@@ -62,7 +64,7 @@ const ExamStartPage: React.FC = () => {
   const submitExamMutation = useSubmitExam();
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string | number>>({});
+  const [answers, setAnswers] = useState<Record<string, any>>({});
   const [marked, setMarked] = useState<string[]>([]);
   const [endTimeMs, setEndTimeMs] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -81,6 +83,7 @@ const ExamStartPage: React.FC = () => {
   const captureAndSendFrameRef = useRef<() => void>(() => undefined);
   const cameraStartedRef = useRef(false);
   const lastCheckFrameErrorToastAtRef = useRef(0);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const lastWarningToastAtRef = useRef<Record<string, number>>({});
 
   // Voice monitoring - NOW HANDLED VIA HTTP BY VOICE ML WORKER
@@ -93,7 +96,7 @@ const ExamStartPage: React.FC = () => {
 
   const timeLeft = Math.max(
     0,
-    Math.floor(((endTimeMs ?? nowMs) - nowMs) / 1000)
+    Math.floor(((endTimeMs ?? nowMs) - nowMs) / 1000),
   );
 
   // Block browser back button and shortcuts during exam
@@ -108,7 +111,7 @@ const ExamStartPage: React.FC = () => {
       e.preventDefault();
       window.history.pushState(null, "", window.location.href);
       alert(
-        "Navigation blocked during active exam. Use 'End Exam' button to exit."
+        "Navigation blocked during active exam. Use 'End Exam' button to exit.",
       );
     };
 
@@ -126,20 +129,43 @@ const ExamStartPage: React.FC = () => {
 
     // Block keyboard shortcuts (Ctrl+W, Alt+F4, F5, etc.)
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Block Ctrl+W (close tab)
-      if ((e.ctrlKey || e.metaKey) && e.key === "w") {
+      // Block common navigation/new-tab shortcuts
+      const blockedKeys = ["w", "t", "n", "l", "e", "k"];
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        blockedKeys.includes(e.key.toLowerCase())
+      ) {
         e.preventDefault();
-        alert("Cannot close tab during exam.");
+        setWarningCount((prev) => prev + 1);
+        toast.error(
+          `⚠️ Security Alert: The shortcut Ctrl+${e.key.toUpperCase()} is disabled during the exam.`,
+          {
+            position: "top-center",
+          },
+        );
       }
-      // Block Alt+F4 (close window) - limited browser support
-      if (e.altKey && e.key === "F4") {
+
+      // Block Developer Tools
+      if (
+        e.key === "F12" ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "i")
+      ) {
         e.preventDefault();
-        alert("Cannot close window during exam.");
+        setWarningCount((prev) => prev + 1);
+        toast.error("⚠️ Security Alert: Developer tools are disabled.", {
+          position: "top-center",
+        });
       }
+
       // Block F5 (refresh)
-      if (e.key === "F5") {
+      if (
+        e.key === "F5" ||
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "r")
+      ) {
         e.preventDefault();
-        alert("Cannot refresh during exam.");
+        toast.warning("⚠️ Refresh is disabled during the exam.", {
+          position: "top-center",
+        });
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -162,18 +188,80 @@ const ExamStartPage: React.FC = () => {
     // Monitor fullscreen exit
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && !terminated) {
-        alert("Please stay in fullscreen mode during the exam.");
+        setWarningCount((prev) => prev + 1);
+        const msg = "⚠️ Please stay in fullscreen mode during the exam!";
+        setWarningMessage(msg);
+        setShowWarning(true);
+        toast.error(msg, {
+          duration: 6000,
+          position: "top-center",
+          style: {
+            background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+            color: "#fff",
+            fontWeight: "bold",
+          },
+        });
+
         // Re-request fullscreen
         setTimeout(() => {
-          document.documentElement.requestFullscreen?.();
-        }, 1000);
+          if (!document.fullscreenElement && !terminated) {
+            document.documentElement.requestFullscreen?.().catch(console.error);
+          }
+        }, 1500);
       }
     };
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
 
+    // Browser Lockdown Features: Visibility and Focus Monitoring
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && !terminated) {
+        setWarningCount((prev) => prev + 1);
+        const msg =
+          "⚠️ Browser minimized, tab changed, or new tab opened! This activity is being recorded.";
+        setWarningMessage(msg);
+        setShowWarning(true);
+        toast.error(msg, {
+          duration: 6000,
+          position: "top-center",
+          style: {
+            background: "linear-gradient(135deg, #FF4B2B 0%, #FF416C 100%)",
+            color: "#fff",
+            fontWeight: "bold",
+          },
+        });
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (!terminated) {
+        setWarningCount((prev) => prev + 1);
+        const msg = "⚠️ Window lost focus! Please stay within the exam window.";
+        setWarningMessage(msg);
+        setShowWarning(true);
+        toast.warning(msg, {
+          duration: 5000,
+          position: "top-center",
+        });
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      toast.info("Right-click is disabled during the exam.", {
+        position: "bottom-center",
+      });
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("contextmenu", handleContextMenu);
+
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("contextmenu", handleContextMenu);
       // Exit fullscreen on unmount
       if (document.fullscreenElement) {
         document.exitFullscreen?.();
@@ -181,57 +269,29 @@ const ExamStartPage: React.FC = () => {
     };
   }, [terminated]);
 
-  // Electron Integration - Redirect to Electron app if in regular browser
-  useEffect(() => {
-    // Only redirect if we're in a regular browser AND have exam data
-    if (examDetails && attemptId && !ElectronIntegration.isRegularBrowser()) {
-      console.log('Already running in Electron app, skipping redirect');
-      return;
-    }
-
-    if (examDetails && attemptId) {
-      const token = localStorage.getItem('token') || '';
-      
-      checkAndRedirect(
-        examDetails.exam.id,
-        attemptId,
-        token
-      ).then(canProceed => {
-        if (canProceed) {
-          console.log('Electron integration check passed, proceeding with exam');
-        }
-      }).catch(error => {
-        console.error('Error in Electron integration:', error);
-      });
-    }
-  }, [examDetails, attemptId, checkAndRedirect]);
-
-  const handleSubmit = useCallback(() => {
+  const submitProcess = useCallback(() => {
     if (!examDetails || !attemptId) {
-      alert("Unable to submit: Missing exam information");
+      toast.error("Unable to submit: Missing exam information");
       return;
     }
 
-    // Show confirmation
-    const confirmSubmit = window.confirm(
-      "Are you sure you want to submit the exam? This action cannot be undone."
-    );
-
-    if (!confirmSubmit) return;
-
-    const payloadAnswers = Object.entries(answers).map(([questionId, value]) => {
-      if (typeof value === "string") {
+    const payloadAnswers = Object.entries(answers).map(
+      ([questionId, value]) => {
+        if (
+          typeof value === "string" &&
+          !questions.find((qq) => String(qq.id) === questionId)?.options
+        ) {
+          return { questionId, writtenAnswer: value };
+        }
+        const isArr = Array.isArray(value);
         return {
           questionId,
-          writtenAnswer: value,
+          selectedOptionId: !isArr ? String(value || "") || null : null,
+          selectedOptionIds: isArr ? (value as any[]).map(String) : null,
+          writtenAnswer: null,
         };
-      }
-
-      return {
-        questionId,
-        selectedOptionId: String(value),
-      };
-    });
+      },
+    );
 
     // 1) autosave current in-memory answers
     autoSaveMutation.mutate(
@@ -249,58 +309,53 @@ const ExamStartPage: React.FC = () => {
               attemptId: attemptId,
             },
             {
-              onSuccess: (data) => {
-                alert(`Exam submitted successfully! Your score: ${data.score}`);
-                
-                // Check if running in Electron app and exit after submission
-                if (!ElectronIntegration.isRegularBrowser()) {
-                  console.log('Exam submitted in Electron app, exiting...');
-                  setTimeout(() => {
-                    // Close the Electron app after a short delay
-                    window.close();
-                  }, 2000);
-                } else {
-                  navigate("/"); // Redirect to home in regular browser
-                }
+              onSuccess: () => {
+                toast.success("Exam submitted successfully!", {
+                  duration: 3000,
+                  position: "top-center",
+                  style: {
+                    background: "#10B981",
+                    color: "#fff",
+                    fontWeight: "bold",
+                  },
+                });
+                navigate("/"); // Redirect to home
               },
               onError: (error: unknown) => {
-                const errorMsg =
-                  axios.isAxiosError<{ message?: string }>(error)
-                    ? error.response?.data?.message ||
-                      "Failed to submit exam. Please try again."
-                    : "Failed to submit exam. Please try again.";
-                alert(errorMsg);
-                console.error("Submit error:", error);
+                const errorMsg = axios.isAxiosError<{ message?: string }>(error)
+                  ? error.response?.data?.message || "Failed to submit exam."
+                  : "Failed to submit exam.";
+                toast.error(errorMsg);
               },
-            }
+            },
           );
         },
         onError: (error: unknown) => {
-          const errorMsg =
-            axios.isAxiosError<{ message?: string }>(error)
-              ? error.response?.data?.message ||
-                "Failed to save answers before submission. Please try again."
-              : "Failed to save answers before submission. Please try again.";
-          alert(errorMsg);
-          console.error("Auto-save error:", error);
+          const errorMsg = axios.isAxiosError<{ message?: string }>(error)
+            ? error.response?.data?.message || "Failed to save answers."
+            : "Failed to save answers.";
+          toast.error(errorMsg);
         },
-      }
+      },
     );
-  }, [answers, autoSaveMutation, examDetails, attemptId, submitExamMutation, navigate]);
+  }, [
+    answers,
+    autoSaveMutation,
+    examDetails,
+    attemptId,
+    submitExamMutation,
+    navigate,
+    questions,
+  ]);
 
-  const handleEndExam = () => {
-    const confirmEnd = window.confirm(
-      "Are you sure you want to end the exam? This will submit your current answers."
-    );
-    if (confirmEnd) {
-      handleSubmit();
-      
-      // For Electron app, show additional confirmation about app exit
-      if (!ElectronIntegration.isRegularBrowser()) {
-        console.log('End exam triggered in Electron app - app will exit after submission');
-      }
+  const handleSubmit = useCallback(() => {
+    if (!examDetails || !attemptId) {
+      toast.error("Unable to submit: Missing exam information");
+      return;
     }
-  };
+    setShowConfirmModal(true);
+  }, [examDetails, attemptId]);
+
 
   const captureAndSendFrame = useCallback(async () => {
     if (!videoRef.current || !attemptId) return;
@@ -311,7 +366,7 @@ const ExamStartPage: React.FC = () => {
       if (!didLogNoVideoDimsRef.current) {
         didLogNoVideoDimsRef.current = true;
         console.warn(
-          "[FACE-FRONTEND] Video not ready yet (videoWidth/videoHeight is 0). Waiting for metadata/playback..."
+          "[FACE-FRONTEND] Video not ready yet (videoWidth/videoHeight is 0). Waiting for metadata/playback...",
         );
       }
       return;
@@ -334,7 +389,7 @@ const ExamStartPage: React.FC = () => {
       // Use medium quality to keep under server payload limits
       const frameData = canvas.toDataURL("image/jpeg", 0.6);
       console.log(
-        `[FACE-FRONTEND] Sending frame for attempt ${attemptId}, size: ${frameData.length} bytes (scaled ${canvas.width}x${canvas.height})`
+        `[FACE-FRONTEND] Sending frame for attempt ${attemptId}, size: ${frameData.length} bytes (scaled ${canvas.width}x${canvas.height})`,
       );
       // delegate to API hook (handles baseURL/credentials)
       checkFrame.mutate(
@@ -352,7 +407,7 @@ const ExamStartPage: React.FC = () => {
               toast.error(msg, { duration: 2500, position: "top-center" });
             }
           },
-        }
+        },
       );
     } catch (err) {
       console.error("[FACE-FRONTEND] Failed to send frame:", err);
@@ -377,7 +432,7 @@ const ExamStartPage: React.FC = () => {
           keystrokes: keystrokeBuffer,
           attemptId: attemptId, // Pass attemptId for CheatEvent logging
         },
-        { withCredentials: true }
+        { withCredentials: true },
       );
       const verified = Boolean(res.data?.verified);
       if (!verified) {
@@ -401,7 +456,7 @@ const ExamStartPage: React.FC = () => {
 
     const timer = setInterval(() => {
       setEndTimeMs(
-        (prev) => prev ?? Date.now() + examDetails.exam.duration * 60 * 1000
+        (prev) => prev ?? Date.now() + examDetails.exam.duration * 60 * 1000,
       );
       setNowMs(Date.now());
     }, 1000);
@@ -418,8 +473,8 @@ const ExamStartPage: React.FC = () => {
     if (didAutoSubmitRef.current) return;
 
     didAutoSubmitRef.current = true;
-    alert("Time is up! Auto submitting...");
-    handleSubmit();
+    toast.info("Time is up! Auto submitting...", { duration: 5000 });
+    submitProcess();
   }, [endTimeMs, handleSubmit, terminated, timeLeft]);
 
   // CAMERA PREVIEW
@@ -448,7 +503,7 @@ const ExamStartPage: React.FC = () => {
           videoRef.current.onloadedmetadata = () => {
             didLogNoVideoDimsRef.current = false;
             console.log(
-              `[FACE-FRONTEND] Video metadata loaded (${videoRef.current?.videoWidth}x${videoRef.current?.videoHeight})`
+              `[FACE-FRONTEND] Video metadata loaded (${videoRef.current?.videoWidth}x${videoRef.current?.videoHeight})`,
             );
             captureAndSendFrameRef.current();
           };
@@ -463,9 +518,10 @@ const ExamStartPage: React.FC = () => {
       } catch (err) {
         cameraStartedRef.current = false;
         console.error("Camera access error:", err);
-        alert(
-          "Camera access is required for this exam. Please enable camera access."
-        );
+        toast.error("Camera access is required for this exam.", {
+          description: "Please enable camera access in your browser settings.",
+          duration: Infinity,
+        });
       }
     };
 
@@ -479,17 +535,19 @@ const ExamStartPage: React.FC = () => {
     };
   }, []);
 
-  // FRAME CAPTURE - Every 5 seconds
+  // FRAME CAPTURE - Every 2.5 seconds
   useEffect(() => {
     if (!attemptId || terminated) return;
 
     const interval = setInterval(() => {
       if (!didLogFrameTickRef.current) {
         didLogFrameTickRef.current = true;
-        console.log("[FACE-FRONTEND] Frame capture interval started (every 3s)");
+        console.log(
+          "[FACE-FRONTEND] Frame capture interval started (every 3s)",
+        );
       }
       if (videoRef.current && !terminated) captureAndSendFrameRef.current();
-    }, 3000);
+    }, 2500);
 
     return () => clearInterval(interval);
   }, [terminated, attemptId]);
@@ -541,343 +599,155 @@ const ExamStartPage: React.FC = () => {
 
     socket.emit("join", `attempt:${attemptId}`);
     console.log(
-      `[EXAM] Joined room: attempt:${attemptId}, socket ID: ${socket.id}`
+      `[EXAM] Joined room: attempt:${attemptId}, socket ID: ${socket.id}`,
     );
 
     socket.on(
       "cheat:warning",
-      (data: { type: string; warningCount: number; message: string; faces?: any[]; objects?: any[] }) => {
+      (data: {
+        type: string;
+        warningCount: number;
+        message: string;
+        faces?: any[];
+        objects?: any[];
+      }) => {
         console.log(`[CHEAT:WARNING] Received:`, data);
         setWarningCount(data.warningCount);
 
         const msg = (data.message || "").toLowerCase();
-
         const isVoiceWarning =
-          data.type === "voice" || msg.includes("voice") || msg.includes("speech");
+          data.type === "voice" ||
+          msg.includes("voice") ||
+          msg.includes("speech");
 
-        // Enhanced face detection logic - check both faces array and objects
-        const hasPersonObject = data.objects?.some((obj: any) => 
-          obj.class === 'person' && obj.confidence > 0.5
-        );
-        const hasDetectedFaces = data.faces && data.faces.length > 0;
-        
+        // Enhanced detection logic
+        const hasPersonObject =
+          data.objects?.some(
+            (obj: any) => obj.class === "person" && obj.confidence > 0.5,
+          ) || false;
+        const hasDetectedFaces = (data.faces && data.faces.length > 0) || false;
+
+        const isSuspiciousObject =
+          data.objects?.some(
+            (obj: any) => obj.class !== "person" && obj.confidence > 0.4,
+          ) || msg.includes("suspicious object");
+
         // Determine if this is a false positive "no face" warning
-        const isFalsePositiveNoFace = msg.includes("no face") && hasPersonObject && !hasDetectedFaces;
-        
+        const isFalsePositiveNoFace =
+          msg.includes("no face") && hasPersonObject && !hasDetectedFaces;
+
         if (isFalsePositiveNoFace) {
-          console.log('[FACE-DETECTION] Suppressing "no face" warning - person detected as object with confidence > 0.5');
+          console.log(
+            '[FACE-DETECTION] Suppressing "no face" warning - person detected as object',
+          );
           return;
         }
 
         const warningKey = isVoiceWarning
           ? "voice"
-          : msg.includes("multiple faces")
-            ? "multiple_faces"
-            : msg.includes("no face")
-              ? "no_face"
-              : msg.includes("suspicious object")
-                ? "suspicious_object"
+          : isSuspiciousObject
+            ? "suspicious_object"
+            : msg.includes("multiple faces")
+              ? "multiple_faces"
+              : msg.includes("no face")
+                ? "no_face"
                 : "other";
 
         const cooldownMs = isVoiceWarning ? 20000 : 8000;
         const now = Date.now();
         const lastAt = lastWarningToastAtRef.current[warningKey] ?? 0;
-        if (now - lastAt < cooldownMs) {
-          return;
-        }
+        if (now - lastAt < cooldownMs) return;
         lastWarningToastAtRef.current[warningKey] = now;
 
         const allowedWarning =
           isVoiceWarning ||
           msg.includes("multiple faces") ||
           msg.includes("no face") ||
-          msg.includes("suspicious object");
+          isSuspiciousObject;
 
-        if (!allowedWarning) {
-          // Suppress non-essential warnings (avoid toast spam)
-          return;
-        }
+        if (!allowedWarning) return;
 
-        // Create user-friendly message based on fraud type
-        let userMessage = data.message;
-        let toastIcon = "⚠️";
-        let toastStyle = {};
+        // Message selection with priority
+        let currentMessage = data.message;
+        let displayedInToast = false;
 
-        // Voice detection warnings - ENHANCED with colorful gradient
         if (isVoiceWarning) {
-          userMessage = "🎤 Voice detected - Please remain silent during the exam";
-          toastIcon = "🎤";
-          toastStyle = {
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            color: "#fff",
-            fontSize: "16px",
-            fontWeight: "600",
-            padding: "16px 24px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 20px rgba(118,75,162,0.4)",
-          };
-          toast.error(userMessage, {
+          currentMessage =
+            "🎤 Voice detected - Please remain silent during the exam";
+          toast.error(currentMessage, {
             duration: 5000,
             position: "top-center",
-            style: toastStyle,
-            icon: toastIcon,
+            icon: "🎤",
+            style: {
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              color: "#fff",
+              fontWeight: "600",
+              borderRadius: "12px",
+            },
           });
-        }
-        // Face detection warnings - with gradient toasts
-        // else if (msg.includes("looking away")) {
-        //   userMessage = "⚠️ Please keep your eyes on the screen";
-        //   toastStyle = {
-        //     background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-        //     color: "#fff",
-        //     fontSize: "15px",
-        //     fontWeight: "600",
-        //     padding: "14px 20px",
-        //     borderRadius: "10px",
-        //     boxShadow: "0 4px 15px rgba(245,87,108,0.3)",
-        //   };
-        //   toast.warning(userMessage, {
-        //     duration: 4000,
-        //     position: "top-center",
-        //     style: toastStyle,
-        //   });}
-        //  else if (msg.includes("face not centered")) {
-        //   userMessage =
-        //     "⚠️ Please position your face in the center of the camera";
-        //   toastStyle = {
-        //     background: "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
-        //     color: "#333",
-        //     fontSize: "15px",
-        //     fontWeight: "600",
-        //     padding: "14px 20px",
-        //     borderRadius: "10px",
-        //     boxShadow: "0 4px 15px rgba(252,182,159,0.3)",
-        //   };
-        //   toast.warning(userMessage, {
-        //     duration: 4000,
-        //     position: "top-center",
-        //     style: toastStyle,
-        //   });
-        // } else if (msg.includes("face too close")) {
-        //   userMessage = "⚠️ Please move back from the camera";
-        //   toastStyle = {
-        //     background: "linear-gradient(135deg, #fdcbf1 0%, #e6dee9 100%)",
-        //     color: "#333",
-        //     fontSize: "15px",
-        //     fontWeight: "600",
-        //     padding: "14px 20px",
-        //     borderRadius: "10px",
-        //     boxShadow: "0 4px 15px rgba(253,203,241,0.3)",
-        //   };
-        //   toast.warning(userMessage, {
-        //     duration: 4000,
-        //     position: "top-center",
-        //     style: toastStyle,
-        //   });
-        // } else if (msg.includes("face too far")) {
-        //   userMessage = "⚠️ Please move closer to the camera";
-        //   toastStyle = {
-        //     background: "linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)",
-        //     color: "#333",
-        //     fontSize: "15px",
-        //     fontWeight: "600",
-        //     padding: "14px 20px",
-        //     borderRadius: "10px",
-        //     boxShadow: "0 4px 15px rgba(161,196,253,0.3)",
-        //   };
-        //   toast.warning(userMessage, {
-        //     duration: 4000,
-        //     position: "top-center",
-        //     style: toastStyle,
-        //   });}
-         else if (msg.includes("multiple faces")) {
-          userMessage = "⚠️ Multiple faces detected - Ensure you are alone";
-          toastIcon = "👥";
-          toastStyle = {
-            background: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-            color: "#fff",
-            fontSize: "16px",
-            fontWeight: "700",
-            padding: "16px 24px",
-            borderRadius: "12px",
-            boxShadow: "0 6px 25px rgba(250,112,154,0.4)",
-          };
-          toast.error(userMessage, {
+          displayedInToast = true;
+        } else if (isSuspiciousObject) {
+          currentMessage = "⚠️ Spam object detected - Please remove it";
+          toast.error(currentMessage, {
             duration: 6000,
             position: "top-center",
-            style: toastStyle,
-            icon: toastIcon,
+            icon: "🧾",
+            style: {
+              background: "linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%)",
+              color: "#fff",
+              fontWeight: "700",
+              borderRadius: "12px",
+            },
           });
+          displayedInToast = true;
+        } else if (msg.includes("multiple faces")) {
+          currentMessage = "⚠️ Multiple faces detected - Ensure you are alone";
+          toast.error(currentMessage, {
+            duration: 6000,
+            position: "top-center",
+            icon: "👥",
+            style: {
+              background: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+              color: "#fff",
+              fontWeight: "700",
+              borderRadius: "12px",
+            },
+          });
+          displayedInToast = true;
         } else if (msg.includes("no face")) {
-          userMessage = "⚠️ Your face is not visible - Please stay in view";
-          toastIcon = "👤";
-          toastStyle = {
-            background: "linear-gradient(135deg, #ff6a00 0%, #ee0979 100%)",
-            color: "#fff",
-            fontSize: "16px",
-            fontWeight: "700",
-            padding: "16px 24px",
-            borderRadius: "12px",
-            boxShadow: "0 6px 25px rgba(238,9,121,0.4)",
-          };
-          toast.error(userMessage, {
+          currentMessage = "⚠️ Your face is not visible - Please stay in view";
+          toast.error(currentMessage, {
             duration: 6000,
             position: "top-center",
-            style: toastStyle,
-            icon: toastIcon,
+            icon: "👤",
+            style: {
+              background: "linear-gradient(135deg, #ff6a00 0%, #ee0979 100%)",
+              color: "#fff",
+              fontWeight: "700",
+              borderRadius: "12px",
+            },
           });
-        } else if (msg.includes("rapid") && msg.includes("movement")) {
-          userMessage = "⚠️ Suspicious rapid movement detected";
-          toastStyle = {
-            background: "linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%)",
-            color: "#333",
-            fontSize: "15px",
-            fontWeight: "600",
-            padding: "14px 20px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 15px rgba(253,203,110,0.3)",
-          };
-          toast.warning(userMessage, {
-            duration: 4000,
-            position: "top-center",
-            style: toastStyle,
-          });
-        } else if (msg.includes("frozen screen") || msg.includes("static image")) {
-          userMessage = "⚠️ Possible screen fraud detected";
-          toastIcon = "🖥️";
-          toastStyle = {
-            background: "linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)",
-            color: "#fff",
-            fontSize: "16px",
-            fontWeight: "700",
-            padding: "16px 24px",
-            borderRadius: "12px",
-            boxShadow: "0 6px 25px rgba(255,154,158,0.4)",
-          };
-          toast.error(userMessage, {
-            duration: 6000,
-            position: "top-center",
-            style: toastStyle,
-            icon: toastIcon,
-          });
-        } else if (msg.includes("brightness")) {
-          userMessage = "⚠️ Sudden screen change detected";
-          toastStyle = {
-            background: "linear-gradient(135deg, #fad0c4 0%, #ffd1ff 100%)",
-            color: "#333",
-            fontSize: "15px",
-            fontWeight: "600",
-            padding: "14px 20px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 15px rgba(250,208,196,0.3)",
-          };
-          toast.warning(userMessage, {
-            duration: 4000,
-            position: "top-center",
-            style: toastStyle,
-          });
+          displayedInToast = true;
         }
-        // Object detection warnings - with colorful gradients
-        else if (
-          msg.includes("phone")
-        ) {
-          userMessage = "⚠️ Mobile phone detected - Please remove it";
-          toastIcon = "📱";
-          toastStyle = {
-            background: "linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%)",
-            color: "#fff",
-            fontSize: "16px",
-            fontWeight: "700",
-            padding: "16px 24px",
-            borderRadius: "12px",
-            boxShadow: "0 6px 25px rgba(252,74,26,0.4)",
-          };
-          toast.error(userMessage, {
-            duration: 6000,
-            position: "top-center",
-            style: toastStyle,
-            icon: toastIcon,
-          });
-        } else if (msg.includes("book")) {
-          userMessage = "⚠️ Book detected - Please remove study materials";
-          toastIcon = "📚";
-          toastStyle = {
-            background: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)",
-            color: "#333",
-            fontSize: "16px",
-            fontWeight: "700",
-            padding: "16px 24px",
-            borderRadius: "12px",
-            boxShadow: "0 6px 25px rgba(247,151,30,0.4)",
-          };
-          toast.error(userMessage, {
-            duration: 6000,
-            position: "top-center",
-            style: toastStyle,
-            icon: toastIcon,
-          });
-        } else if (
-          msg.includes("laptop") ||
-          msg.includes("computer")
-        ) {
-          userMessage =
-            "⚠️ Additional device detected - Only one device allowed";
-          toastIcon = "💻";
-          toastStyle = {
-            background: "linear-gradient(135deg, #ff512f 0%, #dd2476 100%)",
-            color: "#fff",
-            fontSize: "16px",
-            fontWeight: "700",
-            padding: "16px 24px",
-            borderRadius: "12px",
-            boxShadow: "0 6px 25px rgba(221,36,118,0.4)",
-          };
-          toast.error(userMessage, {
-            duration: 6000,
-            position: "top-center",
-            style: toastStyle,
-            icon: toastIcon,
-          });
-        } else if (msg.includes("suspicious object detected")) {
-          userMessage = "⚠️ Suspicious object detected - Please remove it";
-          toastIcon = "🧾";
-          toastStyle = {
-            background: "linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%)",
-            color: "#fff",
-            fontSize: "16px",
-            fontWeight: "700",
-            padding: "16px 24px",
-            borderRadius: "12px",
-            boxShadow: "0 6px 25px rgba(252,74,26,0.4)",
-          };
-          toast.error(userMessage, {
-            duration: 6000,
-            position: "top-center",
-            style: toastStyle,
-            icon: toastIcon,
-          });
-        } else {
-          // Generic warning for other fraud types
-          toast.warning(userMessage, {
+
+        // Generic fallback toast if not already displayed
+        if (!displayedInToast) {
+          toast.warning(currentMessage, {
             duration: 5000,
             position: "top-center",
             style: {
               background: "linear-gradient(135deg, #f5af19 0%, #f12711 100%)",
               color: "#fff",
-              fontSize: "15px",
               fontWeight: "600",
-              padding: "14px 20px",
               borderRadius: "10px",
-              boxShadow: "0 4px 15px rgba(241,39,17,0.3)",
             },
           });
         }
 
-        setWarningMessage(userMessage);
+        setWarningMessage(currentMessage);
         setShowWarning(true);
-
-        // Auto-hide warning after 5 seconds
         setTimeout(() => setShowWarning(false), 5000);
-      }
+      },
     );
 
     socket.on("attempt:terminated", (data: { reason: string }) => {
@@ -937,10 +807,6 @@ const ExamStartPage: React.FC = () => {
     );
   }
 
-  // Extract exam and questions from fetched data
-  const exam = examDetails.exam;
-  const questions = exam.questions;
-
   const handleKeystrokeDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     setKeystrokeBuffer((prev) => [
       ...prev,
@@ -976,213 +842,257 @@ const ExamStartPage: React.FC = () => {
   };
 
   return (
-    <div
-      className="min-h-screen flex relative"
-      style={{ backgroundColor: colors.lightGreenBg }}
-    >
-      {/* WARNING BANNER */}
-      {showWarning && (
-        <div className="fixed top-0 left-0 right-0 bg-linear -to-r from-yellow-500 to-orange-500 text-white p-4 z-50 flex items-center justify-between shadow-lg animate-pulse">
-          <div className="flex items-center gap-3">
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <div>
-              <strong className="block">
-                Warning {warningCount}/{maxWarnings}
-              </strong>
-              <span className="text-sm">{warningMessage}</span>
+    <>
+      <div
+        className="min-h-screen flex relative"
+        style={{ backgroundColor: colors.lightGreenBg }}
+      >
+        {/* WARNING BANNER */}
+        {showWarning && (
+          <div className="fixed top-0 left-0 right-0 bg-linear -to-r from-yellow-500 to-orange-500 text-white p-4 z-50 flex items-center justify-between shadow-lg animate-pulse">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <div>
+                <strong className="block">
+                  Warning {warningCount}/{maxWarnings}
+                </strong>
+                <span className="text-sm">{warningMessage}</span>
+              </div>
             </div>
+            <button
+              onClick={() => setShowWarning(false)}
+              className="text-white font-bold text-2xl hover:text-gray-200 transition"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            onClick={() => setShowWarning(false)}
-            className="text-white font-bold text-2xl hover:text-gray-200 transition"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* ---------------- LEFT SIDE: QUESTION PANEL ---------------- */}
-      <div className="flex-1 p-8 overflow-y-auto">
-        <div
-          className="rounded-3xl p-8 shadow-lg"
-          style={{
-            backgroundColor: "white",
-            border: `1px solid ${colors.borderGray}`,
-          }}
-        >
-          <h1
-            className="text-2xl font-bold mb-5"
-            style={{ color: colors.green }}
+        {/* ---------------- LEFT SIDE: QUESTION PANEL ---------------- */}
+        <div className="flex-1 p-8 overflow-y-auto">
+          <div
+            className="rounded-3xl p-8 shadow-lg"
+            style={{
+              backgroundColor: "white",
+              border: `1px solid ${colors.borderGray}`,
+            }}
           >
-            Question {currentIndex + 1}
-          </h1>
+            <h1
+              className="text-2xl font-bold mb-5"
+              style={{ color: colors.green }}
+            >
+              Question {currentIndex + 1}
+            </h1>
 
-          <p
-            className="text-lg mb-6 leading-relaxed"
-            style={{ color: colors.darkText }}
-          >
-            {q.question}
-          </p>
+            <p
+              className="text-lg mb-6 leading-relaxed"
+              style={{ color: colors.darkText }}
+            >
+              {q.question}
+            </p>
 
-          {/* --------- MCQ --------- */}
-          {q.type === "MCQ" && (
-            <div className="space-y-4">
-              {q.options?.map((opt) => (
-                <label
-                  key={opt.id}
-                  className="flex items-center p-4 rounded-xl cursor-pointer hover:bg-gray-100 transition"
-                  style={{
-                    backgroundColor: colors.lightGray,
-                    border: `1px solid ${colors.borderGray}`,
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name={`q_${String(q.id)}`}
-                    checked={answers[String(q.id)] === opt.id}
-                    onChange={() =>
-                      setAnswers({ ...answers, [String(q.id)]: opt.id })
+            {/* --------- MCQ --------- */}
+            {q.type === "MCQ" && (
+              <div className="grid grid-cols-1 gap-4">
+                {q.options?.map((opt, index) => {
+                  const isSelected = q.hasMultipleCorrect
+                    ? (answers[String(q.id)] as any[])?.includes(opt.id)
+                    : answers[String(q.id)] === opt.id;
+
+                  const handleChange = () => {
+                    if (q.hasMultipleCorrect) {
+                      const current = (answers[String(q.id)] as any[]) || [];
+                      const next = current.includes(opt.id)
+                        ? current.filter((id) => id !== opt.id)
+                        : [...current, opt.id];
+                      setAnswers({ ...answers, [String(q.id)]: next });
+                    } else {
+                      setAnswers({ ...answers, [String(q.id)]: opt.id });
                     }
-                    className="mr-3"
-                    disabled={terminated}
-                  />
-                  <span style={{ color: colors.darkText }}>{opt.text}</span>
-                </label>
-              ))}
-            </div>
-          )}
+                  };
 
-          {/* --------- TYPING QUESTION --------- */}
-          {q.type === "TYPING" && (
-            <textarea
-              onChange={(e) =>
-                setAnswers({ ...answers, [String(q.id)]: e.target.value })
-              }
-              onKeyDown={handleKeystrokeDown}
-              onKeyUp={handleKeystrokeUp}
-              value={answers[String(q.id)] || ""}
-              minLength={q.answerMinLength}
-              maxLength={q.answerMaxLength}
-              className="w-full h-40 p-4 rounded-xl mt-4 focus:ring-2 focus:ring-green-500 focus:outline-none"
-              style={{
-                backgroundColor: colors.lightGray,
-                border: `1px solid ${colors.borderGray}`,
-                color: colors.darkText,
-              }}
-              placeholder={`Write your answer here (Min: ${q.answerMinLength}, Max: ${q.answerMaxLength})`}
-              disabled={terminated}
-            />
-          )}
+                  const optionLetters = ["A", "B", "C", "D", "E", "F"];
 
-          {/* Navigation */}
-          <div className="flex justify-between mt-8">
-            <button
-              onClick={() => setCurrentIndex((i) => Math.max(i - 1, 0))}
-              className="px-5 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
-              style={{ backgroundColor: colors.green }}
-              disabled={terminated}
-            >
-              Previous
-            </button>
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={handleChange}
+                      disabled={terminated}
+                      className={`flex items-center text-left p-5 rounded-2xl transition-all duration-300 group relative border-2 ${
+                        isSelected
+                          ? "bg-emerald-50 border-emerald-500 shadow-md shadow-emerald-100"
+                          : "bg-slate-50 border-slate-100 hover:border-slate-300 hover:bg-white"
+                      }`}
+                    >
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center font-black mr-4 border-2 transition-all duration-300 ${
+                          isSelected
+                            ? "bg-emerald-500 text-white border-emerald-500"
+                            : "bg-white text-slate-400 border-slate-200 group-hover:border-slate-400 group-hover:text-slate-600"
+                        }`}
+                      >
+                        {optionLetters[index] || index + 1}
+                      </div>
+                      <span
+                        className={`flex-1 text-base font-bold transition-all duration-300 ${
+                          isSelected ? "text-emerald-900" : "text-slate-600"
+                        }`}
+                      >
+                        {opt.text}
+                      </span>
+                      {isSelected && (
+                        <div className="bg-emerald-500 rounded-full p-1 animate-in zoom-in duration-300">
+                          <svg
+                            className="w-4 h-4 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="3"
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
-            <button
-              onClick={toggleMark}
-              className="px-5 py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50"
-              style={{
-                backgroundColor: marked.includes(String(q.id))
-                  ? "#FFD966"
-                  : colors.lightGray,
-              }}
-              disabled={terminated}
-            >
-              {marked.includes(String(q.id)) ? "Marked" : "Mark for Review"}
-            </button>
-
-            {/* Next Button - Only show if not on last question */}
-            {currentIndex < questions.length - 1 && (
-              <button
-                onClick={() =>
-                  setCurrentIndex((i) => Math.min(i + 1, questions.length - 1))
+            {/* --------- TYPING QUESTION --------- */}
+            {q.type === "TYPING" && (
+              <textarea
+                onChange={(e) =>
+                  setAnswers({ ...answers, [String(q.id)]: e.target.value })
                 }
+                onKeyDown={handleKeystrokeDown}
+                onKeyUp={handleKeystrokeUp}
+                value={answers[String(q.id)] || ""}
+                minLength={q.answerMinLength}
+                maxLength={q.answerMaxLength}
+                className="w-full h-40 p-4 rounded-xl mt-4 focus:ring-2 focus:ring-green-500 focus:outline-none"
+                style={{
+                  backgroundColor: colors.lightGray,
+                  border: `1px solid ${colors.borderGray}`,
+                  color: colors.darkText,
+                }}
+                placeholder={`Write your answer here (Min: ${q.answerMinLength}, Max: ${q.answerMaxLength})`}
+                disabled={terminated}
+              />
+            )}
+
+            {/* Navigation */}
+            <div className="flex justify-between mt-8">
+              <button
+                onClick={() => setCurrentIndex((i) => Math.max(i - 1, 0))}
                 className="px-5 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
                 style={{ backgroundColor: colors.green }}
                 disabled={terminated}
               >
-                Next
+                Previous
+              </button>
+
+              <button
+                onClick={toggleMark}
+                className="px-5 py-3 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50"
+                style={{
+                  backgroundColor: marked.includes(String(q.id))
+                    ? "#FFD966"
+                    : colors.lightGray,
+                }}
+                disabled={terminated}
+              >
+                {marked.includes(String(q.id)) ? "Marked" : "Mark for Review"}
+              </button>
+
+              {/* Next Button - Only show if not on last question */}
+              {currentIndex < questions.length - 1 && (
+                <button
+                  onClick={() =>
+                    setCurrentIndex((i) =>
+                      Math.min(i + 1, questions.length - 1),
+                    )
+                  }
+                  className="px-5 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
+                  style={{ backgroundColor: colors.green }}
+                  disabled={terminated}
+                >
+                  Next
+                </button>
+              )}
+            </div>
+
+            {/* Submit Button - Only show if on last question */}
+            {currentIndex === questions.length - 1 && (
+              <button
+                onClick={handleSubmit}
+                className="w-full py-5 rounded-[24px] mt-10 text-xl text-white font-black tracking-wider hover:opacity-90 transition-all shadow-xl shadow-emerald-200 active:scale-[0.98] disabled:opacity-50"
+                style={{ backgroundColor: colors.green }}
+                disabled={terminated}
+              >
+                Submit Exam
               </button>
             )}
           </div>
-
-          {/* Submit Button - Only show if on last question */}
-          {currentIndex === questions.length - 1 && (
-            <button
-              onClick={handleSubmit}
-              className="w-full py-4 rounded-2xl mt-10 text-xl text-white font-bold hover:opacity-90 transition disabled:opacity-50"
-              style={{ backgroundColor: colors.green }}
-              disabled={terminated}
-            >
-              Submit Exam
-            </button>
-          )}
         </div>
-      </div>
 
-      {/* ---------------- RIGHT SIDE: TIMER / PALETTE / CAMERA ---------------- */}
-      <div
-        className="w-96 p-6 border-l"
-        style={{ borderColor: colors.borderGray }}
-      >
-        {/* Timer */}
+        {/* ---------------- RIGHT SIDE: TIMER / PALETTE / CAMERA ---------------- */}
         <div
-          className="p-5 rounded-2xl shadow mb-6 text-center"
-          style={{ backgroundColor: "white" }}
+          className="w-96 p-6 border-l"
+          style={{ borderColor: colors.borderGray }}
         >
-          <h2
-            className="text-xl font-bold mb-1"
-            style={{ color: colors.green }}
-          >
-            Time Left
-          </h2>
-          <p className="text-3xl font-bold" style={{ color: colors.darkText }}>
-            {formatTime(timeLeft)}
-          </p>
-        </div>
-
-        {/* End Exam Button */}
-        <button
-          onClick={handleEndExam}
-          disabled={terminated}
-          className="w-full py-3 rounded-xl mb-6 text-white font-semibold hover:opacity-90 transition disabled:opacity-50"
-          style={{ backgroundColor: "#DC2626" }}
-        >
-          End Exam
-        </button>
-
-        {/* Warning Counter */}
-        {warningCount > 0 && (
+          {/* Timer */}
           <div
-            className="p-4 rounded-2xl shadow mb-6 text-center"
-            style={{ backgroundColor: "#FFF3CD", border: "1px solid #FFD966" }}
+            className="p-5 rounded-2xl shadow mb-6 text-center"
+            style={{ backgroundColor: "white" }}
           >
-            <h3 className="font-bold text-yellow-800 mb-1">Warnings</h3>
-            <p className="text-2xl font-bold text-yellow-900">
-              {warningCount} / {maxWarnings}
-            </p>
-            <p className="text-xs text-yellow-700 mt-1">
-              Warnings are shown for testing. Exam will not auto-terminate.
+            <h2
+              className="text-xl font-bold mb-1"
+              style={{ color: colors.green }}
+            >
+              Time Left
+            </h2>
+            <p
+              className="text-3xl font-bold"
+              style={{ color: colors.darkText }}
+            >
+              {formatTime(timeLeft)}
             </p>
           </div>
-        )}
 
-        {/* Voice Monitoring Indicator - REMOVED */}
-        {/* Voice warnings now shown via Socket.IO cheat:warning events */}
-        {/* {isMonitoring && (
+
+          {/* Warning Counter */}
+          {warningCount > 0 && (
+            <div
+              className="p-4 rounded-2xl shadow mb-6 text-center"
+              style={{
+                backgroundColor: "#FFF3CD",
+                border: "1px solid #FFD966",
+              }}
+            >
+              <h3 className="font-bold text-yellow-800 mb-1">Warnings</h3>
+              <p className="text-2xl font-bold text-yellow-900">
+                {warningCount} / {maxWarnings}
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                Warnings are shown for testing. Exam will not auto-terminate.
+              </p>
+            </div>
+          )}
+
+          {/* Voice Monitoring Indicator - REMOVED */}
+          {/* Voice warnings now shown via Socket.IO cheat:warning events */}
+          {/* {isMonitoring && (
           <div
             className="p-4 rounded-2xl shadow mb-6 text-center"
             style={{
@@ -1214,90 +1124,168 @@ const ExamStartPage: React.FC = () => {
           </div>
         )} */}
 
-        {/* Question Palette */}
-        <div
-          className="p-5 rounded-2xl shadow mb-6"
-          style={{ backgroundColor: "white" }}
-        >
-          <h2
-            className="text-xl font-bold mb-4"
-            style={{ color: colors.green }}
+          {/* Question Palette */}
+          <div
+            className="p-5 rounded-2xl shadow mb-6"
+            style={{ backgroundColor: "white" }}
           >
-            Question Palette
-          </h2>
-
-          <div className="grid grid-cols-5 gap-3">
-            {questions.map((qq, i) => {
-              const qqId = String(qq.id);
-              const answered = answers[qqId];
-              const isMarked = marked.includes(qqId);
-
-              let bg = colors.lightGray;
-              if (answered) bg = colors.green;
-              if (isMarked) bg = "#FFD966";
-
-              return (
-                <button
-                  key={qqId}
-                  onClick={() => setCurrentIndex(i)}
-                  className="w-10 h-10 rounded-xl font-bold hover:opacity-80 transition disabled:opacity-50"
-                  style={{ backgroundColor: bg, color: colors.darkText }}
-                  disabled={terminated}
-                >
-                  {i + 1}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Camera Box */}
-        <div
-          className="p-5 rounded-2xl shadow"
-          style={{ backgroundColor: "white" }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-bold" style={{ color: colors.green }}>
-              Camera Feed
+            <h2
+              className="text-xl font-black mb-4 flex items-center gap-2"
+              style={{ color: colors.green }}
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2.5"
+                  d="M4 6h16M4 12h16m-7 6h7"
+                />
+              </svg>
+              Assessment Grid
             </h2>
-            {!terminated && (
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xs text-green-600 font-semibold">
-                  Monitoring Active
-                </span>
+
+            <div className="grid grid-cols-5 gap-3">
+              {questions.map((qq, i) => {
+                const qqId = String(qq.id);
+                const answered = answers[qqId];
+                const isMarked = marked.includes(qqId);
+
+                let bg = colors.lightGray;
+                let textColor = colors.darkText;
+                if (answered) {
+                  bg = colors.green;
+                  textColor = "white";
+                }
+                if (isMarked) {
+                  bg = "#FFD966";
+                  textColor = "#856404";
+                }
+
+                return (
+                  <button
+                    key={qqId}
+                    onClick={() => setCurrentIndex(i)}
+                    className={`w-full aspect-square rounded-xl font-bold transition-all duration-200 ${
+                      currentIndex === i
+                        ? "ring-4 ring-green-100 scale-110"
+                        : ""
+                    }`}
+                    style={{ backgroundColor: bg, color: textColor }}
+                    disabled={terminated}
+                  >
+                    {i + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Camera Box */}
+          <div
+            className="p-5 rounded-2xl shadow"
+            style={{ backgroundColor: "white" }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xl font-bold" style={{ color: colors.green }}>
+                Camera Feed
+              </h2>
+              {!terminated && (
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-600 font-semibold">
+                    Monitoring Active
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full rounded-xl"
+              style={{ backgroundColor: "#000" }}
+            ></video>
+
+            <div className="mt-3">
+              <p className="text-sm" style={{ color: colors.softText }}>
+                Keep your face visible. Moving away may trigger alerts.
+              </p>
+              <p className="text-xs mt-1" style={{ color: colors.softText }}>
+                Checked every 2.5 seconds
+              </p>
+            </div>
+
+            {terminated && (
+              <div className="mt-3 p-3 bg-red-100 border border-red-400 rounded-lg">
+                <p className="text-sm text-red-700 font-semibold text-center">
+                  Exam Terminated
+                </p>
               </div>
             )}
           </div>
-
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            className="w-full rounded-xl"
-            style={{ backgroundColor: "#000" }}
-          ></video>
-
-          <div className="mt-3">
-            <p className="text-sm" style={{ color: colors.softText }}>
-              Keep your face visible. Moving away may trigger alerts.
-            </p>
-            <p className="text-xs mt-1" style={{ color: colors.softText }}>
-              Checked every 5 seconds
-            </p>
-          </div>
-
-          {terminated && (
-            <div className="mt-3 p-3 bg-red-100 border border-red-400 rounded-lg">
-              <p className="text-sm text-red-700 font-semibold text-center">
-                Exam Terminated
-              </p>
-            </div>
-          )}
         </div>
       </div>
-    </div>
+
+      {/* CONFIRMATION MODAL */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300"
+            onClick={() => setShowConfirmModal(false)}
+          ></div>
+          <div className="bg-white rounded-[40px] p-10 max-w-md w-full relative z-10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.2)] border border-slate-100 animate-in zoom-in slide-in-from-bottom-12 duration-500">
+            <div className="w-20 h-20 bg-emerald-50 rounded-[24px] flex items-center justify-center text-emerald-500 mb-6 mx-auto">
+              <svg
+                className="w-10 h-10"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2.5"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+
+            <h2 className="text-4xl font-black text-slate-800 text-center mb-4 tracking-tight">
+              Finalize Submission?
+            </h2>
+            <p className="text-slate-500 text-center mb-10 font-medium leading-relaxed">
+              You are about to submit your assessment. This action is final and
+              your answers will be locked immediately.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="py-4 rounded-2xl font-black text-slate-400 bg-slate-50 hover:bg-slate-100 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  submitProcess();
+                }}
+                className="py-4 rounded-2xl font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all active:scale-[0.98]"
+              >
+                Submit Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

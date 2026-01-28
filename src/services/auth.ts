@@ -23,7 +23,7 @@ export interface StudentUser {
   dob: string;
   gender: string;
   selfieVideo: string;
-  hasTypingProfile?:boolean; 
+  hasTypingProfile?: boolean;
   createdAt: string | Date;
   updatedAt: string | Date;
   unreadNotificationCount: number;
@@ -72,7 +72,7 @@ export const useStudentGoogleAuth = () => {
           createdAt: new Date(data.user.createdAt),
           updatedAt: new Date(data.user.updatedAt),
           unreadNotificationCount: data.user.unreadNotificationCount,
-        })
+        }),
       );
       toast.success("Logged in with Google");
     },
@@ -141,7 +141,7 @@ export const useStudentLogin = () => {
           createdAt: new Date(data.user.createdAt),
           updatedAt: new Date(data.user.updatedAt),
           unreadNotificationCount: data.user.unreadNotificationCount,
-        })
+        }),
       );
       toast.success("Logged in successfully");
     },
@@ -188,7 +188,7 @@ export const useStudentProfileImageDelete = () => {
           createdAt: new Date(data.user.createdAt),
           updatedAt: new Date(data.user.updatedAt),
           unreadNotificationCount: data.user.unreadNotificationCount,
-        })
+        }),
       );
       toast.success("Profile image deleted");
     },
@@ -235,7 +235,7 @@ export const useStudentSelfieVideoDelete = () => {
           createdAt: new Date(data.user.createdAt),
           updatedAt: new Date(data.user.updatedAt),
           unreadNotificationCount: data.user.unreadNotificationCount,
-        })
+        }),
       );
       toast.success("Selfie video deleted");
     },
@@ -356,7 +356,7 @@ export const useStudentMe = () => {
         createdAt: new Date(user.createdAt),
         updatedAt: new Date(user.updatedAt),
         isAuthenticated: true,
-      })
+      }),
     );
   }, [query.data, dispatch]);
 
@@ -393,7 +393,7 @@ export const useStudentProfileUpdate = () => {
           createdAt: new Date(data.user.createdAt),
           updatedAt: new Date(data.user.updatedAt),
           unreadNotificationCount: data.user.unreadNotificationCount,
-        })
+        }),
       );
       toast.success("Profile updated");
     },
@@ -441,7 +441,7 @@ export const useStudentProfileImageUpdate = () => {
           createdAt: new Date(data.user.createdAt),
           updatedAt: new Date(data.user.updatedAt),
           unreadNotificationCount: data.user.unreadNotificationCount,
-        })
+        }),
       );
       toast.success("Profile image updated");
     },
@@ -489,7 +489,7 @@ export const useStudentSelfieVideoUpdate = () => {
           createdAt: new Date(data.user.createdAt),
           updatedAt: new Date(data.user.updatedAt),
           unreadNotificationCount: data.user.unreadNotificationCount,
-        })
+        }),
       );
       toast.success("Selfie video updated");
     },
@@ -549,6 +549,7 @@ export type ExamDetails = {
       id: number | string;
       question: string;
       type: "MCQ" | "TYPING";
+      hasMultipleCorrect?: boolean;
       options?: Array<{ id: number | string; text: string }>;
       answerMinLength?: number;
       answerMaxLength?: number;
@@ -563,7 +564,9 @@ export type ExamDetails = {
 };
 
 const getExamDetailsByAttemptApi = async (attemptId: string) => {
-  const res = await axiosInstance.get(`/student/attempt/${attemptId}/exam-details`);
+  const res = await axiosInstance.get(
+    `/student/attempt/${attemptId}/exam-details`,
+  );
   return res.data as ExamDetails;
 };
 
@@ -596,7 +599,12 @@ export const useStartExam = () => {
 
 // NEW: Get exam attempt status
 type ExamAttemptStatus = {
-  status: "not_attempted" | "submitted" | "terminated" | "in_progress" | "unknown";
+  status:
+    | "not_attempted"
+    | "submitted"
+    | "terminated"
+    | "in_progress"
+    | "unknown";
   canStart: boolean;
   score?: number;
   submittedAt?: string;
@@ -609,7 +617,9 @@ type ExamAttemptStatus = {
 };
 
 const getExamAttemptStatusApi = async (examId: string) => {
-  const res = await axiosInstance.get(`/student/exams/${examId}/attempt-status`);
+  const res = await axiosInstance.get(
+    `/student/exams/${examId}/attempt-status`,
+  );
   return res.data as ExamAttemptStatus;
 };
 
@@ -626,6 +636,7 @@ type SaveAnswerPayload = {
   attemptId: string;
   questionId: string;
   selectedOptionId?: string | null;
+  selectedOptionIds?: string[] | null;
   writtenAnswer?: string | null;
 };
 
@@ -636,7 +647,7 @@ const saveAnswerApi = async ({
 }: SaveAnswerPayload) => {
   const res = await axiosInstance.post(
     `/student/exams/${examId}/attempt/${attemptId}/answer`,
-    body
+    body,
   );
   return res.data as { message: string };
 };
@@ -653,6 +664,7 @@ type AutoSavePayload = {
   answers: Array<{
     questionId: string;
     selectedOptionId?: string | null;
+    selectedOptionIds?: string[] | null;
     writtenAnswer?: string | null;
   }>;
 };
@@ -660,7 +672,7 @@ type AutoSavePayload = {
 const autoSaveApi = async ({ examId, attemptId, answers }: AutoSavePayload) => {
   const res = await axiosInstance.post(
     `/student/exams/${examId}/attempt/${attemptId}/autosave`,
-    { answers }
+    { answers },
   );
   return res.data as { message: string };
 };
@@ -676,7 +688,7 @@ type SubmitExamResponse = { message: string; score: number };
 
 const submitExamApi = async ({ examId, attemptId }: SubmitExamPayload) => {
   const res = await axiosInstance.post(
-    `/student/exams/${examId}/attempt/${attemptId}/submit`
+    `/student/exams/${examId}/attempt/${attemptId}/submit`,
   );
   return res.data as SubmitExamResponse;
 };
@@ -709,7 +721,7 @@ type CheckFrameResponse = { fraud: FraudItem[] } & Record<string, unknown>;
 const checkFrameApi = async ({ attemptId, frame }: CheckFramePayload) => {
   const res = await axiosInstance.post(
     `/proctoring/attempt/${attemptId}/check-frame`,
-    { frame }
+    { frame },
   );
   return res.data as CheckFrameResponse;
 };
@@ -718,10 +730,16 @@ export const useCheckFrame = () => {
   return useMutation<CheckFrameResponse, unknown, CheckFramePayload>({
     mutationFn: checkFrameApi,
     onSuccess: (data, variables) => {
-      console.log(`[FACE-FRONTEND] Frame check response for ${variables.attemptId}:`, data);
+      console.log(
+        `[FACE-FRONTEND] Frame check response for ${variables.attemptId}:`,
+        data,
+      );
     },
     onError: (error, variables) => {
-      console.error(`[FACE-FRONTEND] Frame check error for ${variables.attemptId}:`, error);
+      console.error(
+        `[FACE-FRONTEND] Frame check error for ${variables.attemptId}:`,
+        error,
+      );
     },
   });
 };
@@ -746,7 +764,11 @@ export type AttemptSummary = {
     id: string;
     marksObtained: number;
     writtenAnswer: string | null;
-    selectedOption: { id: string; isCorrect: boolean; optionText: string } | null;
+    selectedOption: {
+      id: string;
+      isCorrect: boolean;
+      optionText: string;
+    } | null;
     question: {
       id: string;
       type: "mcq" | "typing";

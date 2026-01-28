@@ -26,10 +26,12 @@ import { ProtectedRouteAfterLogin } from "./middleware/ProtectedRouteAfterLogin"
 import { ProtectedRoute } from "./middleware/ProtectedRoute";
 import { ExamAttemptGuard } from "./middleware/ExamAttemptGuard";
 import { Toaster } from "sonner";
+import ScrollToTop from "./Components/ScrollToTop";
 
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route element={<ProtectedRouteAfterLogin />}>
           <Route path="/login" element={<Login />} />
