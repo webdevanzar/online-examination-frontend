@@ -41,7 +41,7 @@ export const useVoiceMonitoring = (
           try {
             const response = await axios.get<VoiceStatus>(
               `${VOICE_ML_URL}/voice-status`,
-              { timeout: 2000 }
+              { timeout: 180000 }
             );
             samples.push(response.data);
 

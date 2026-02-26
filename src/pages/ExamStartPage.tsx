@@ -36,12 +36,6 @@ export interface ExamQuestion {
   answerMaxLength?: number;
 }
 
-interface KeystrokeEvent {
-  key: string;
-  event: "keydown" | "keyup";
-  timestamp: number;
-}
-
 const ExamStartPage: React.FC = () => {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
@@ -75,7 +69,7 @@ const ExamStartPage: React.FC = () => {
   const [showWarning, setShowWarning] = useState(false);
   const [warningMessage, setWarningMessage] = useState("");
   const [terminated, setTerminated] = useState(false);
-  const [keystrokeBuffer, setKeystrokeBuffer] = useState<KeystrokeEvent[]>([]);
+  const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const [, setStream] = useState<MediaStream | null>(null);
   const didAutoSubmitRef = useRef(false);
   const didLogNoVideoDimsRef = useRef(false);
@@ -98,6 +92,30 @@ const ExamStartPage: React.FC = () => {
     0,
     Math.floor(((endTimeMs ?? nowMs) - nowMs) / 1000),
   );
+
+  // Monitor fullscreen exit — re-enter prompt shown (requestFullscreen needs user gesture,
+  // so we cannot call it directly here; instead show a blocking overlay with a click target)
+  useEffect(() => {
+    if (terminated) return;
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && !terminated) {
+        setShowFullscreenPrompt(true);
+        setWarningCount((prev) => prev + 1);
+      } else {
+        setShowFullscreenPrompt(false);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      // Exit fullscreen when component unmounts (exam submitted / terminated)
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    };
+  }, [terminated]);
 
   // Block browser back button and shortcuts during exam
   useEffect(() => {
@@ -269,7 +287,7 @@ const ExamStartPage: React.FC = () => {
     };
   }, [terminated]);
 
-  const submitProcess = useCallback(() => {
+  const submitProcess = useCallback(async () => {
     if (!examDetails || !attemptId) {
       toast.error("Unable to submit: Missing exam information");
       return;
@@ -277,10 +295,12 @@ const ExamStartPage: React.FC = () => {
 
     const payloadAnswers = Object.entries(answers).map(
       ([questionId, value]) => {
-        if (
-          typeof value === "string" &&
-          !questions.find((qq) => String(qq.id) === questionId)?.options
-        ) {
+        const q = questions.find((qq) => String(qq.id) === questionId);
+        // Treat as a written/typing answer if the question type is TYPING
+        // or has no options (options is undefined, null, or an empty array)
+        const isTyping =
+          q?.type === "TYPING" || !q?.options || q.options.length === 0;
+        if (typeof value === "string" && isTyping) {
           return { questionId, writtenAnswer: value };
         }
         const isArr = Array.isArray(value);
@@ -293,51 +313,36 @@ const ExamStartPage: React.FC = () => {
       },
     );
 
-    // 1) autosave current in-memory answers
-    autoSaveMutation.mutate(
-      {
+    try {
+      // 1) autosave current in-memory answers — await completion
+      await autoSaveMutation.mutateAsync({
         examId: examDetails.exam.id,
         attemptId,
         answers: payloadAnswers,
-      },
-      {
-        onSuccess: () => {
-          // 2) submit exam (backend will grade saved answers)
-          submitExamMutation.mutate(
-            {
-              examId: examDetails.exam.id,
-              attemptId: attemptId,
-            },
-            {
-              onSuccess: () => {
-                toast.success("Exam submitted successfully!", {
-                  duration: 3000,
-                  position: "top-center",
-                  style: {
-                    background: "#10B981",
-                    color: "#fff",
-                    fontWeight: "bold",
-                  },
-                });
-                navigate("/"); // Redirect to home
-              },
-              onError: (error: unknown) => {
-                const errorMsg = axios.isAxiosError<{ message?: string }>(error)
-                  ? error.response?.data?.message || "Failed to submit exam."
-                  : "Failed to submit exam.";
-                toast.error(errorMsg);
-              },
-            },
-          );
+      });
+
+      // 2) submit exam (backend will grade saved answers) — await completion
+      await submitExamMutation.mutateAsync({
+        examId: examDetails.exam.id,
+        attemptId: attemptId,
+      });
+
+      toast.success("Exam submitted successfully!", {
+        duration: 3000,
+        position: "top-center",
+        style: {
+          background: "#10B981",
+          color: "#fff",
+          fontWeight: "bold",
         },
-        onError: (error: unknown) => {
-          const errorMsg = axios.isAxiosError<{ message?: string }>(error)
-            ? error.response?.data?.message || "Failed to save answers."
-            : "Failed to save answers.";
-          toast.error(errorMsg);
-        },
-      },
-    );
+      });
+      navigate("/"); // Redirect to home
+    } catch (error: unknown) {
+      const errorMsg = axios.isAxiosError<{ message?: string }>(error)
+        ? error.response?.data?.message || "Failed to submit exam."
+        : "Failed to submit exam.";
+      toast.error(errorMsg);
+    }
   }, [
     answers,
     autoSaveMutation,
@@ -355,7 +360,6 @@ const ExamStartPage: React.FC = () => {
     }
     setShowConfirmModal(true);
   }, [examDetails, attemptId]);
-
 
   const captureAndSendFrame = useCallback(async () => {
     if (!videoRef.current || !attemptId) return;
@@ -420,35 +424,6 @@ const ExamStartPage: React.FC = () => {
     };
   }, [captureAndSendFrame]);
 
-  const verifyKeystrokePattern = useCallback(async () => {
-    try {
-      const res = await axios.post<{
-        verified: boolean;
-        confidence: number;
-        message: string;
-      }>(
-        `${BACKEND_URL}/api/biometric/user/verify-keystroke`,
-        {
-          keystrokes: keystrokeBuffer,
-          attemptId: attemptId, // Pass attemptId for CheatEvent logging
-        },
-        { withCredentials: true },
-      );
-      const verified = Boolean(res.data?.verified);
-      if (!verified) {
-        console.warn("[KEYSTROKE] Pattern mismatch", {
-          confidence: res.data?.confidence,
-          message: res.data?.message,
-        });
-      }
-      // Only return success when backend explicitly verified the typing pattern
-      return verified;
-    } catch (err) {
-      console.error("Keystroke verification failed:", err);
-      return false;
-    }
-  }, [keystrokeBuffer, attemptId]);
-
   // TIMER
   useEffect(() => {
     if (terminated) return;
@@ -475,7 +450,7 @@ const ExamStartPage: React.FC = () => {
     didAutoSubmitRef.current = true;
     toast.info("Time is up! Auto submitting...", { duration: 5000 });
     submitProcess();
-  }, [endTimeMs, handleSubmit, terminated, timeLeft]);
+  }, [endTimeMs, submitProcess, terminated, timeLeft]);
 
   // CAMERA PREVIEW
   useEffect(() => {
@@ -551,44 +526,6 @@ const ExamStartPage: React.FC = () => {
 
     return () => clearInterval(interval);
   }, [terminated, attemptId]);
-
-  // KEYSTROKE VERIFICATION - Every 60 seconds
-  useEffect(() => {
-    if (terminated) return;
-
-    const interval = setInterval(() => {
-      if (keystrokeBuffer.length >= 60 && !terminated) {
-        verifyKeystrokePattern().then((success) => {
-          if (success) {
-            setKeystrokeBuffer([]);
-          }
-        });
-      }
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, [keystrokeBuffer, terminated, verifyKeystrokePattern]);
-
-  // KEYSTROKE VERIFICATION - After typing questions
-  useEffect(() => {
-    if (!examDetails) return;
-    const questions = examDetails.exam.questions;
-    const prevQ = currentIndex > 0 ? questions[currentIndex - 1] : null;
-
-    // If previous question was typing and we have keystroke data, verify
-    if (prevQ && prevQ.type === "TYPING" && keystrokeBuffer.length >= 60) {
-      verifyKeystrokePattern().then((success) => {
-        if (success) {
-          setKeystrokeBuffer([]);
-        }
-      });
-    }
-  }, [
-    currentIndex,
-    examDetails,
-    keystrokeBuffer.length,
-    verifyKeystrokePattern,
-  ]);
 
   // WEBSOCKET CONNECTION
   useEffect(() => {
@@ -807,20 +744,6 @@ const ExamStartPage: React.FC = () => {
     );
   }
 
-  const handleKeystrokeDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    setKeystrokeBuffer((prev) => [
-      ...prev,
-      { key: e.key, event: "keydown", timestamp: Date.now() },
-    ]);
-  };
-
-  const handleKeystrokeUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    setKeystrokeBuffer((prev) => [
-      ...prev,
-      { key: e.key, event: "keyup", timestamp: Date.now() },
-    ]);
-  };
-
   const q = questions[currentIndex];
 
   const toggleMark = () => {
@@ -844,7 +767,7 @@ const ExamStartPage: React.FC = () => {
   return (
     <>
       <div
-        className="min-h-screen flex relative"
+        className="h-screen flex relative overflow-hidden"
         style={{ backgroundColor: colors.lightGreenBg }}
       >
         {/* WARNING BANNER */}
@@ -875,7 +798,7 @@ const ExamStartPage: React.FC = () => {
         )}
 
         {/* ---------------- LEFT SIDE: QUESTION PANEL ---------------- */}
-        <div className="flex-1 p-8 overflow-y-auto">
+        <div className="flex-1 p-8 overflow-y-auto h-full">
           <div
             className="rounded-3xl p-8 shadow-lg"
             style={{
@@ -975,8 +898,6 @@ const ExamStartPage: React.FC = () => {
                 onChange={(e) =>
                   setAnswers({ ...answers, [String(q.id)]: e.target.value })
                 }
-                onKeyDown={handleKeystrokeDown}
-                onKeyUp={handleKeystrokeUp}
                 value={answers[String(q.id)] || ""}
                 minLength={q.answerMinLength}
                 maxLength={q.answerMaxLength}
@@ -1048,7 +969,7 @@ const ExamStartPage: React.FC = () => {
 
         {/* ---------------- RIGHT SIDE: TIMER / PALETTE / CAMERA ---------------- */}
         <div
-          className="w-96 p-6 border-l"
+          className="w-96 p-6 border-l overflow-y-auto h-full shrink-0"
           style={{ borderColor: colors.borderGray }}
         >
           {/* Timer */}
@@ -1070,9 +991,8 @@ const ExamStartPage: React.FC = () => {
             </p>
           </div>
 
-
           {/* Warning Counter */}
-          {warningCount > 0 && (
+          {/* {warningCount > 0 && (
             <div
               className="p-4 rounded-2xl shadow mb-6 text-center"
               style={{
@@ -1088,7 +1008,7 @@ const ExamStartPage: React.FC = () => {
                 Warnings are shown for testing. Exam will not auto-terminate.
               </p>
             </div>
-          )}
+          )} */}
 
           {/* Voice Monitoring Indicator - REMOVED */}
           {/* Voice warnings now shown via Socket.IO cheat:warning events */}
@@ -1217,9 +1137,6 @@ const ExamStartPage: React.FC = () => {
               <p className="text-sm" style={{ color: colors.softText }}>
                 Keep your face visible. Moving away may trigger alerts.
               </p>
-              <p className="text-xs mt-1" style={{ color: colors.softText }}>
-                Checked every 2.5 seconds
-              </p>
             </div>
 
             {terminated && (
@@ -1282,6 +1199,34 @@ const ExamStartPage: React.FC = () => {
                 Submit Now
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULLSCREEN RE-ENTER OVERLAY */}
+      {showFullscreenPrompt && !terminated && (
+        <div className="fixed inset-0 z-9999 flex flex-col items-center justify-center bg-slate-900/95 backdrop-blur-sm">
+          <div className="bg-white rounded-[32px] p-10 max-w-sm w-full text-center shadow-2xl mx-4">
+            <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mb-5 mx-auto text-3xl">
+              ⛶
+            </div>
+            <h2 className="text-2xl font-black text-slate-800 mb-3">
+              Fullscreen Required
+            </h2>
+            <p className="text-slate-500 mb-6 leading-relaxed">
+              The exam must run in fullscreen mode. Exiting fullscreen has been
+              recorded as a warning. Please return to fullscreen to continue.
+            </p>
+            <button
+              onClick={() => {
+                document.documentElement
+                  .requestFullscreen()
+                  .catch((e) => console.warn("Fullscreen re-enter failed:", e));
+              }}
+              className="w-full py-4 rounded-2xl font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all active:scale-[0.98] text-lg"
+            >
+              Return to Fullscreen
+            </button>
           </div>
         </div>
       )}

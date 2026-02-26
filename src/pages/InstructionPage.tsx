@@ -38,7 +38,7 @@ const InstructionPage = () => {
       } catch {
         console.error("Failed to parse exam instructions");
         // If parsing fails, treat as single instruction string
-        if (typeof exam.instructions === 'string' && exam.instructions.trim()) {
+        if (typeof exam.instructions === "string" && exam.instructions.trim()) {
           apiInstructions.push(exam.instructions.trim());
         }
       }
@@ -51,8 +51,8 @@ const InstructionPage = () => {
     const uniqueInstructions = allInstructions.filter(
       (instruction, index, self) =>
         self.findIndex(
-          (i) => i.toLowerCase().trim() === instruction.toLowerCase().trim()
-        ) === index
+          (i) => i.toLowerCase().trim() === instruction.toLowerCase().trim(),
+        ) === index,
     );
 
     return uniqueInstructions;
@@ -73,11 +73,19 @@ const InstructionPage = () => {
 
   const canStart = exam ? new Date() >= new Date(exam.startTime) : false;
 
-  const handleStart = () => {
+  const handleStart = async () => {
     if (!exam) {
       toast.error("Missing exam details. Please select an exam again.");
       navigate("/exams");
       return;
+    }
+
+    // Request fullscreen here — inside a click handler (user gesture required by browsers)
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch (err) {
+      console.warn("Fullscreen request failed:", err);
+      // Non-blocking — still proceed to exam even if fullscreen fails
     }
 
     // Navigate directly to enrollment page (face verification happens FIRST)
@@ -93,9 +101,15 @@ const InstructionPage = () => {
       >
         <div
           className="w-full max-w-xl p-10 rounded-3xl shadow-lg text-center"
-          style={{ backgroundColor: "white", border: `1px solid ${colors.borderGray}` }}
+          style={{
+            backgroundColor: "white",
+            border: `1px solid ${colors.borderGray}`,
+          }}
         >
-          <h1 className="text-2xl font-bold mb-4" style={{ color: colors.darkText }}>
+          <h1
+            className="text-2xl font-bold mb-4"
+            style={{ color: colors.darkText }}
+          >
             Exam details not found
           </h1>
           <p className="mb-6" style={{ color: colors.softText }}>
@@ -149,7 +163,10 @@ const InstructionPage = () => {
             >
               About This Exam
             </h2>
-            <p className="text-lg leading-relaxed" style={{ color: colors.softText }}>
+            <p
+              className="text-lg leading-relaxed"
+              style={{ color: colors.softText }}
+            >
               {examDescription}
             </p>
           </div>
@@ -170,9 +187,15 @@ const InstructionPage = () => {
             >
               Exam Details
             </h2>
-            <p><strong>Subject:</strong> {exam.subject}</p>
-            <p><strong>Duration:</strong> {exam.duration} mins</p>
-            <p><strong>Total Questions:</strong> {exam.questionCount}</p>
+            <p>
+              <strong>Subject:</strong> {exam.subject}
+            </p>
+            <p>
+              <strong>Duration:</strong> {exam.duration} mins
+            </p>
+            <p>
+              <strong>Total Questions:</strong> {exam.questionCount}
+            </p>
           </div>
 
           <div
@@ -188,8 +211,12 @@ const InstructionPage = () => {
             >
               Marks Information
             </h2>
-            <p><strong>Total Marks:</strong> {exam.totalMarks}</p>
-            <p><strong>Passing Marks:</strong> {exam.passingMarks}</p>
+            <p>
+              <strong>Total Marks:</strong> {exam.totalMarks}
+            </p>
+            <p>
+              <strong>Passing Marks:</strong> {exam.passingMarks}
+            </p>
           </div>
         </div>
 
@@ -231,7 +258,10 @@ const InstructionPage = () => {
                           apiInstructions.push(...parsed);
                         }
                       } catch {
-                        if (typeof exam.instructions === 'string' && exam.instructions.trim()) {
+                        if (
+                          typeof exam.instructions === "string" &&
+                          exam.instructions.trim()
+                        ) {
                           apiInstructions.push(exam.instructions.trim());
                         }
                       }
@@ -266,7 +296,14 @@ const InstructionPage = () => {
                   const isFallback = fallbackInstructions.includes(ins);
                   return (
                     <li key={i} className="text-lg flex items-start">
-                      <span className={isFallback ? "text-yellow-600" : "text-blue-600"} style={{ marginRight: '8px', marginTop: '4px' }}>•</span>
+                      <span
+                        className={
+                          isFallback ? "text-yellow-600" : "text-blue-600"
+                        }
+                        style={{ marginRight: "8px", marginTop: "4px" }}
+                      >
+                        •
+                      </span>
                       <span>{ins}</span>
                     </li>
                   );
@@ -275,7 +312,6 @@ const InstructionPage = () => {
             </div>
           </div>
         </div>
-
 
         {/* BUTTON */}
         <div className="flex justify-center">
