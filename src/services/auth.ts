@@ -76,24 +76,8 @@ export const useStudentGoogleAuth = () => {
       );
       toast.success("Logged in with Google");
     },
-    onError: (err: unknown) => {
-      const error = err as AxiosError<{ message: string }>;
-      const msg =
-        error.response?.data?.message ||
-        "Something went wrong with Google login";
-
-      toast.error(msg, {
-        duration: 1500,
-        style: {
-          background: "#FEE2E2",
-          color: "#B91C1C",
-          border: "1px solid #FCA5A5",
-          padding: "12px 16px",
-          borderRadius: "8px",
-          fontSize: "14px",
-          fontWeight: "500",
-        },
-      });
+    onError: () => {
+   
     },
   });
 
@@ -145,21 +129,8 @@ export const useStudentLogin = () => {
       );
       toast.success("Logged in successfully");
     },
-    onError: (err: unknown) => {
-      const error = err as AxiosError<{ message?: string }>;
-      const msg = error.response?.data?.message || "Something went wrong";
-      toast.error(msg, {
-        duration: 1500,
-        style: {
-          background: "#FEE2E2",
-          color: "#B91C1C",
-          border: "1px solid #FCA5A5",
-          padding: "12px 16px",
-          borderRadius: "8px",
-          fontSize: "14px",
-          fontWeight: "500",
-        },
-      });
+    onError: () => {
+   
     },
   });
 };
@@ -192,21 +163,8 @@ export const useStudentProfileImageDelete = () => {
       );
       toast.success("Profile image deleted");
     },
-    onError: (err: unknown) => {
-      const error = err as AxiosError<{ message?: string }>;
-      const msg = error.response?.data?.message || "Something went wrong";
-      toast.error(msg, {
-        duration: 1500,
-        style: {
-          background: "#FEE2E2",
-          color: "#B91C1C",
-          border: "1px solid #FCA5A5",
-          padding: "12px 16px",
-          borderRadius: "8px",
-          fontSize: "14px",
-          fontWeight: "500",
-        },
-      });
+    onError: () => {
+      
     },
   });
 };
@@ -239,21 +197,8 @@ export const useStudentSelfieVideoDelete = () => {
       );
       toast.success("Selfie video deleted");
     },
-    onError: (err: unknown) => {
-      const error = err as AxiosError<{ message?: string }>;
-      const msg = error.response?.data?.message || "Something went wrong";
-      toast.error(msg, {
-        duration: 1500,
-        style: {
-          background: "#FEE2E2",
-          color: "#B91C1C",
-          border: "1px solid #FCA5A5",
-          padding: "12px 16px",
-          borderRadius: "8px",
-          fontSize: "14px",
-          fontWeight: "500",
-        },
-      });
+    onError: () => {
+
     },
   });
 };
@@ -271,21 +216,8 @@ export const useStudentLogout = () => {
       dispatch(logoutSuccess());
       toast.success("Logged out");
     },
-    onError: (err: unknown) => {
-      const error = err as AxiosError<{ message?: string }>;
-      const msg = error.response?.data?.message || "Something went wrong";
-      toast.error(msg, {
-        duration: 1500,
-        style: {
-          background: "#FEE2E2",
-          color: "#B91C1C",
-          border: "1px solid #FCA5A5",
-          padding: "12px 16px",
-          borderRadius: "8px",
-          fontSize: "14px",
-          fontWeight: "500",
-        },
-      });
+    onError: () => {
+
     },
   });
 };
@@ -303,21 +235,8 @@ export const useStudentRegister = () => {
       toast.success("Registered successfully");
       qc.invalidateQueries({ queryKey: ["students"] });
     },
-    onError: (err: unknown) => {
-      const error = err as AxiosError<{ message?: string }>;
-      const msg = error.response?.data?.message || "Something went wrong";
-      toast.error(msg, {
-        duration: 1500,
-        style: {
-          background: "#FEE2E2",
-          color: "#B91C1C",
-          border: "1px solid #FCA5A5",
-          padding: "12px 16px",
-          borderRadius: "8px",
-          fontSize: "14px",
-          fontWeight: "500",
-        },
-      });
+    onError: () => {
+
     },
   });
 };
