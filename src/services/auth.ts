@@ -76,8 +76,8 @@ export const useStudentGoogleAuth = () => {
       );
       toast.success("Logged in with Google");
     },
-    onError: () => {
-   
+    onError: (error:any) => {
+   toast.error(error.response.data.message)
     },
   });
 
